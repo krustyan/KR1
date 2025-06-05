@@ -15,11 +15,11 @@ dias_es = {
 
 # Formato personalizado para CLP
 def formatear_monto(valor):
-    return f"${valor:,.0f}".replace(",", ".")  # separador de miles con punto
+    return f"${valor:,.0f}".replace(",", ".")
 
 @st.cache_data
 def load_data():
-    xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")  # el archivo debe estar en la raíz
+    xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
     headers = df.iloc[0].tolist()
@@ -40,8 +40,8 @@ def get_val(df, col):
         return int(float(df[col].iat[0]))
     return 0
 
-# Interfaz principal
-st.title("📊 Presupuesto Diario Casino Enjoy Los Ángeles")
+# Interfaz
+st.title("📈 Presupuesto Diario Casino Enjoy Los Ángeles")
 
 fecha = st.date_input("Selecciona una fecha")
 st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strftime('%A')]})")
@@ -53,18 +53,19 @@ try:
     coin_in = get_val(df, "Coin In")
     win_mesas = get_val(df, "Win Mesas")
 
-    st.subheader("🔍 Resumen Financiero")
-    st.markdown(f"- **Win TGM:** {formatear_monto(win_tgm)}")
-    st.markdown(f"- **Coin In:** {formatear_monto(coin_in)}")
-    st.markdown(f"- **Win Mesas:** {formatear_monto(win_mesas)}")
+    st.subheader("📊 PPTO")
+    st.markdown(f"🎰 **Win TGM:** {formatear_monto(win_tgm)}")
+    st.markdown(f"💵 **Coin In:** {formatear_monto(coin_in)}")
+    st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
 
     if coin_in > 0:
         payoff = win_tgm / coin_in
-        st.markdown(f"- **Payoff estimado:** {payoff:.2%}")
+        st.markdown(f"📈 **Payoff estimado:** {payoff:.2%}")
     else:
-        st.markdown("- **Payoff estimado:** No disponible (Coin In = 0)")
+        st.markdown("📉 **Payoff estimado:** No disponible (Coin In = 0)")
 
 except FileNotFoundError:
     st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró en el repositorio.")
+
 
 
