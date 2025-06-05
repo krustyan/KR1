@@ -43,7 +43,7 @@ def get_val(fila, col):
     return 0
 
 # Interfaz principal
-st.title("📈 Presupuesto Diario Casino Enjoy Los Ángeles")
+st.title("📈 PPTO ENJOY LOS ÁNGELES")
 
 # Selección de fecha con formato día/mes/año
 st.markdown("📆 **Selecciona una fecha (formato: día/mes/año):**")
