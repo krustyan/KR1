@@ -1,22 +1,37 @@
-
 import streamlit as st
 import pandas as pd
-import locale
+import re
 
-# Configurar formato CLP
-locale.setlocale(locale.LC_ALL, 'es_CL.UTF-8')
+# Diccionario de días en español
+dias_es = {
+    "Monday": "Lunes",
+    "Tuesday": "Martes",
+    "Wednesday": "Miércoles",
+    "Thursday": "Jueves",
+    "Friday": "Viernes",
+    "Saturday": "Sábado",
+    "Sunday": "Domingo"
+}
 
+# Formato CLP para mostrar
+def formatear_monto(valor):
+    try:
+        return f"${valor:,.0f}".replace(",", ".")
+    except:
+        return "$0"
+
+# Cargar datos desde el Excel
 @st.cache_data
 def load_data():
-    xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
+    xls = pd.ExcelFile("attached_assets/CIERRE_PPTO_2025_1749150043653.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
+    # Limpiar encabezados
     headers = df.iloc[0].tolist()
     df = df.iloc[1:].copy()
     df.columns = [str(h).strip() for h in headers]
-    df.columns = [c.strip() for c in df.columns]
 
-    # Renombrar columnas según nombres exactos del Excel
+    # Renombrar columnas
     df.rename(columns={
         "WIN TGM": "Win TGM",
         "COIN IN": "CI TGM",
@@ -24,54 +39,38 @@ def load_data():
         "DROP": "DROP Mesas"
     }, inplace=True)
 
+    # Formatear fecha y día
     df.rename(columns={df.columns[0]: "fecha"}, inplace=True)
     df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
-    df["día_semana"] = df["fecha"].dt.day_name(locale="es_CL.utf8")
-    df["Fecha"] = df["fecha"].dt.strftime('%d/%m/%Y')  # formato día/mes/año
+    df["día_semana_en"] = df["fecha"].dt.day_name()
+    df["día_semana"] = df["día_semana_en"].map(dias_es)
+    df["fecha"] = df["fecha"].dt.strftime("%d/%m/%Y")
 
-    # Limpiar símbolos monetarios
+    # Convertir columnas monetarias de forma segura
     for col in ["Win TGM", "CI TGM", "Win Mesas", "DROP Mesas"]:
         if col in df.columns:
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.replace("[$,]", "", regex=True)
-                .astype(float)
-                .fillna(0)
-            )
-        else:
-            df[col] = pd.Series([0]*len(df))
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
-def get_val(df, col):
-    try:
-        return int(float(df.loc[df.index[0], col]))
-    except:
-        return 0
-
-df_bases = load_data()
-
+# 🖼️ Interfaz Streamlit
 st.markdown("<h1 style='text-align: center;'>📊 Presupuesto Diario Casino Enjoy Los Ángeles</h1>", unsafe_allow_html=True)
 
-fecha_input = st.date_input("Selecciona una fecha")
-resultado = df_bases[df_bases["fecha"] == pd.to_datetime(fecha_input)]
+fecha_seleccionada = st.date_input("Selecciona una fecha")
+df_bases = load_data()
 
-if not resultado.empty:
-    win_tgm = get_val(resultado, "Win TGM")
-    ci_tgm = get_val(resultado, "CI TGM")
-    win_mesas = get_val(resultado, "Win Mesas")
-    drop_mesas = get_val(resultado, "DROP Mesas")
+# Buscar fila correspondiente
+fila = df_bases[df_bases["fecha"] == fecha_seleccionada.strftime("%d/%m/%Y")]
 
-    dia_semana = resultado["día_semana"].iloc[0]
-    fecha_limpia = resultado["Fecha"].iloc[0]
+if not fila.empty:
+    fila = fila.iloc[0]
 
-    st.markdown("---")
-    st.markdown(f"### 📅 {dia_semana} - {fecha_limpia}")
-    st.markdown(f"### 🎰 Win TGM: `{locale.currency(win_tgm, grouping=True)}`")
-    st.markdown(f"### 💰 CI TGM: `{locale.currency(ci_tgm, grouping=True)}`")
-    st.markdown(f"### 🎲 Win Mesas: `{locale.currency(win_mesas, grouping=True)}`")
-    st.markdown(f"### 📉 DROP Mesas: `{locale.currency(drop_mesas, grouping=True)}`")
-    st.markdown("---")
+    st.markdown(f"### 📅 {fila['día_semana']} - {fila['fecha']}")
+
+    st.markdown(f"### 🏧 Win TGM: <span style='color:green'>{formatear_monto(fila['Win TGM'])}</span>", unsafe_allow_html=True)
+    st.markdown(f"### 🪙 CI TGM: <span style='color:green'>{formatear_monto(fila['CI TGM'])}</span>", unsafe_allow_html=True)
+    st.markdown(f"### 🎲 Win Mesas: <span style='color:green'>{formatear_monto(fila['Win Mesas'])}</span>", unsafe_allow_html=True)
+    st.markdown(f"### 📉 DROP Mesas: <span style='color:green'>{formatear_monto(fila['DROP Mesas'])}</span>", unsafe_allow_html=True)
 else:
-    st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
+    st.warning("No hay información disponible para esa fecha.")
+
