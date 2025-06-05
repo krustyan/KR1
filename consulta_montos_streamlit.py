@@ -22,11 +22,12 @@ def load_data():
     xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
+    # Usar la primera fila como encabezados
     headers = df.iloc[0].tolist()
     df = df.iloc[1:].copy()
     df.columns = [str(h).strip() for h in headers]
-    df.columns = [c.strip() for c in df.columns]
 
+    # Renombrar columnas relevantes
     df.rename(columns={
         "WIN TGM": "Win TGM",
         "COIN IN": "Coin In",
@@ -34,14 +35,17 @@ def load_data():
         "FECHA": "Fecha"
     }, inplace=True)
 
-    # Convertir la columna Fecha a formato datetime
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
+    # Convertir columna 'Fecha' a datetime
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce', dayfirst=True)
 
     return df
 
 def get_val(fila, col):
     if col in fila and not pd.isnull(fila[col]):
-        return int(float(fila[col]))
+        try:
+            return int(float(fila[col]))
+        except:
+            return 0
     return 0
 
 # Interfaz
@@ -53,11 +57,12 @@ st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strf
 try:
     df = load_data()
 
-    # Filtrar por la fecha seleccionada
-    fila = df[df["Fecha"] == pd.to_datetime(fecha)]
+    # Filtrar por fecha exacta
+    df_filtrado = df[df["Fecha"] == pd.to_datetime(fecha)]
 
-    if not fila.empty:
-        fila = fila.iloc[0]  # Tomamos la primera fila que coincide
+    if not df_filtrado.empty:
+        fila = df_filtrado.iloc[0]
+
         win_tgm = get_val(fila, "Win TGM")
         coin_in = get_val(fila, "Coin In")
         win_mesas = get_val(fila, "Win Mesas")
@@ -77,3 +82,6 @@ try:
 
 except FileNotFoundError:
     st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró en el repositorio.")
+except Exception as e:
+    st.error(f"❌ Error: {e}")
+
