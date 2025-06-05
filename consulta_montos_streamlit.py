@@ -45,8 +45,9 @@ def get_val(fila, col):
 # Interfaz principal
 st.title("📈 Presupuesto Diario Casino Enjoy Los Ángeles")
 
-# Selección de fecha
-fecha = st.date_input("Selecciona una fecha")
+# Selección de fecha con formato día/mes/año
+st.markdown("📆 **Selecciona una fecha (formato: día/mes/año):**")
+fecha = st.date_input("", format="DD/MM/YYYY")
 
 # Mostrar fecha formateada
 dia_semana = dias_es[fecha.strftime('%A')]
@@ -85,3 +86,4 @@ except FileNotFoundError:
     st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
 except Exception as e:
     st.error(f"❌ Error: {e}")
+
