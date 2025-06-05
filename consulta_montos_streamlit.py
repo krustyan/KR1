@@ -19,6 +19,7 @@ def load_data():
     df.columns = df.iloc[0]
     df = df[1:].copy()
 
+    # Renombrar columnas clave
     df.rename(columns={
         "dia": "Fecha",
         "WIN TGM": "Win TGM",
@@ -27,7 +28,9 @@ def load_data():
         "DROP": "Drop Mesas"
     }, inplace=True)
 
+    # Asegurarse de que la columna de fecha sea datetime
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
+
     return df
 
 def get_val(fila, col):
@@ -38,9 +41,10 @@ def get_val(fila, col):
             return 0
     return 0
 
-# Interfaz
+# Interfaz principal
 st.title("📈 Presupuesto Diario Casino Enjoy Los Ángeles")
 
+# Fecha seleccionada
 fecha = st.date_input("Selecciona una fecha")
 st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strftime('%A')]})")
 
@@ -65,4 +69,12 @@ try:
         else:
             st.markdown("📉 **Payoff estimado:** No disponible (Coin In = 0)")
 
-        st.
+        st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
+        st.markdown(f"🪙 **Drop Mesas:** {formatear_monto(drop_mesas)}")
+    else:
+        st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
+
+except FileNotFoundError:
+    st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
+except Exception as e:
+    st.error(f"❌ Error: {e}")
