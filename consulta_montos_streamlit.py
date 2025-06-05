@@ -1,10 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-# Traductor de días
+# Traductor de días y meses al español
 dias_es = {
     'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
     'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+}
+
+meses_es = {
+    1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+    7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
 }
 
 def formatear_monto(valor):
@@ -15,11 +20,9 @@ def load_data():
     xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
-    # Usar segunda fila como encabezados
     df.columns = df.iloc[0]
     df = df[1:].copy()
 
-    # Renombrar columnas clave
     df.rename(columns={
         "dia": "Fecha",
         "WIN TGM": "Win TGM",
@@ -28,9 +31,7 @@ def load_data():
         "DROP": "Drop Mesas"
     }, inplace=True)
 
-    # Asegurarse de que la columna de fecha sea datetime
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
-
     return df
 
 def get_val(fila, col):
@@ -44,9 +45,15 @@ def get_val(fila, col):
 # Interfaz principal
 st.title("📈 Presupuesto Diario Casino Enjoy Los Ángeles")
 
-# Fecha seleccionada
+# Selección de fecha
 fecha = st.date_input("Selecciona una fecha")
-st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strftime('%A')]})")
+
+# Mostrar fecha formateada
+dia_semana = dias_es[fecha.strftime('%A')]
+dia = fecha.day
+mes = meses_es[fecha.month]
+anio = fecha.year
+st.markdown(f"📅 **{dia_semana} {dia:02d} de {mes} de {anio}**")
 
 try:
     df = load_data()
