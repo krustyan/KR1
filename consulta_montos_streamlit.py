@@ -31,13 +31,17 @@ def load_data():
         "WIN TGM": "Win TGM",
         "COIN IN": "Coin In",
         "WIN MESAS": "Win Mesas",
+        "FECHA": "Fecha"
     }, inplace=True)
+
+    # Convertir la columna Fecha a formato datetime
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
 
     return df
 
-def get_val(df, col):
-    if col in df.columns and not pd.isnull(df[col].iat[0]):
-        return int(float(df[col].iat[0]))
+def get_val(fila, col):
+    if col in fila and not pd.isnull(fila[col]):
+        return int(float(fila[col]))
     return 0
 
 # Interfaz
@@ -49,23 +53,27 @@ st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strf
 try:
     df = load_data()
 
-    win_tgm = get_val(df, "Win TGM")
-    coin_in = get_val(df, "Coin In")
-    win_mesas = get_val(df, "Win Mesas")
+    # Filtrar por la fecha seleccionada
+    fila = df[df["Fecha"] == pd.to_datetime(fecha)]
 
-    st.subheader("📊 PPTO")
-    st.markdown(f"🎰 **Win TGM:** {formatear_monto(win_tgm)}")
-    st.markdown(f"💵 **Coin In:** {formatear_monto(coin_in)}")
-    st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
+    if not fila.empty:
+        fila = fila.iloc[0]  # Tomamos la primera fila que coincide
+        win_tgm = get_val(fila, "Win TGM")
+        coin_in = get_val(fila, "Coin In")
+        win_mesas = get_val(fila, "Win Mesas")
 
-    if coin_in > 0:
-        payoff = win_tgm / coin_in
-        st.markdown(f"📈 **Payoff estimado:** {payoff:.2%}")
+        st.subheader("📊 PPTO")
+        st.markdown(f"🎰 **Win TGM:** {formatear_monto(win_tgm)}")
+        st.markdown(f"💵 **Coin In:** {formatear_monto(coin_in)}")
+        st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
+
+        if coin_in > 0:
+            payoff = win_tgm / coin_in
+            st.markdown(f"📈 **Payoff estimado:** {payoff:.2%}")
+        else:
+            st.markdown("📉 **Payoff estimado:** No disponible (Coin In = 0)")
     else:
-        st.markdown("📉 **Payoff estimado:** No disponible (Coin In = 0)")
+        st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
 
 except FileNotFoundError:
     st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró en el repositorio.")
-
-
-
