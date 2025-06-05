@@ -18,15 +18,16 @@ def load_data():
     # Usar segunda fila como encabezados
     df.columns = df.iloc[0]
     df = df[1:].copy()
+
     df.rename(columns={
         "dia": "Fecha",
         "WIN TGM": "Win TGM",
         "COIN IN": "Coin In",
-        "WIN MESAS": "Win Mesas"
+        "WIN MESAS": "Win Mesas",
+        "DROP": "Drop Mesas"
     }, inplace=True)
 
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
-
     return df
 
 def get_val(fila, col):
@@ -52,11 +53,13 @@ try:
         win_tgm = get_val(fila, "Win TGM")
         coin_in = get_val(fila, "Coin In")
         win_mesas = get_val(fila, "Win Mesas")
+        drop_mesas = get_val(fila, "Drop Mesas")
 
         st.subheader("📊 PPTO")
         st.markdown(f"🎰 **Win TGM:** {formatear_monto(win_tgm)}")
         st.markdown(f"💵 **Coin In:** {formatear_monto(coin_in)}")
         st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
+        st.markdown(f"🪙 **Drop Mesas:** {formatear_monto(drop_mesas)}")
 
         if coin_in > 0:
             payoff = win_tgm / coin_in
