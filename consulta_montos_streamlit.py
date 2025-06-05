@@ -19,7 +19,7 @@ def formatear_monto(valor):
 
 @st.cache_data
 def load_data():
-    xls = pd.ExcelFile("attached_assets/CIERRE_PPTO_2025_1749150043653.xlsx")
+    xls = pd.ExcelFile("attached_assets/CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
     headers = df.iloc[0].tolist()
