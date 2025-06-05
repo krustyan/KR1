@@ -58,19 +58,11 @@ try:
         st.subheader("📊 PPTO")
         st.markdown(f"🎰 **Win TGM:** {formatear_monto(win_tgm)}")
         st.markdown(f"💵 **Coin In:** {formatear_monto(coin_in)}")
-        st.markdown(f"🎲 **Win Mesas:** {formatear_monto(win_mesas)}")
-        st.markdown(f"🪙 **Drop Mesas:** {formatear_monto(drop_mesas)}")
 
         if coin_in > 0:
             payoff = win_tgm / coin_in
             st.markdown(f"📈 **Payoff estimado:** {payoff:.2%}")
         else:
             st.markdown("📉 **Payoff estimado:** No disponible (Coin In = 0)")
-    else:
-        st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
 
-except FileNotFoundError:
-    st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
-except Exception as e:
-    st.error(f"❌ Error: {e}")
-
+        st.
