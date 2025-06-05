@@ -1,19 +1,12 @@
 import streamlit as st
 import pandas as pd
-import re
 
-# Diccionario para traducir días al español
+# Traductor de días
 dias_es = {
-    'Monday': 'Lunes',
-    'Tuesday': 'Martes',
-    'Wednesday': 'Miércoles',
-    'Thursday': 'Jueves',
-    'Friday': 'Viernes',
-    'Saturday': 'Sábado',
-    'Sunday': 'Domingo'
+    'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
 }
 
-# Formato personalizado para CLP
 def formatear_monto(valor):
     return f"${valor:,.0f}".replace(",", ".")
 
@@ -22,21 +15,17 @@ def load_data():
     xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
-    # Usar la primera fila como encabezados
-    headers = df.iloc[0].tolist()
-    df = df.iloc[1:].copy()
-    df.columns = [str(h).strip() for h in headers]
-
-    # Renombrar columnas relevantes
+    # Usar segunda fila como encabezados
+    df.columns = df.iloc[0]
+    df = df[1:].copy()
     df.rename(columns={
+        "dia": "Fecha",
         "WIN TGM": "Win TGM",
         "COIN IN": "Coin In",
-        "WIN MESAS": "Win Mesas",
-        "FECHA": "Fecha"
+        "WIN MESAS": "Win Mesas"
     }, inplace=True)
 
-    # Convertir columna 'Fecha' a datetime
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce', dayfirst=True)
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
 
     return df
 
@@ -56,13 +45,10 @@ st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strf
 
 try:
     df = load_data()
-
-    # Filtrar por fecha exacta
     df_filtrado = df[df["Fecha"] == pd.to_datetime(fecha)]
 
     if not df_filtrado.empty:
         fila = df_filtrado.iloc[0]
-
         win_tgm = get_val(fila, "Win TGM")
         coin_in = get_val(fila, "Coin In")
         win_mesas = get_val(fila, "Win Mesas")
@@ -81,7 +67,7 @@ try:
         st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
 
 except FileNotFoundError:
-    st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró en el repositorio.")
+    st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
 except Exception as e:
     st.error(f"❌ Error: {e}")
 
