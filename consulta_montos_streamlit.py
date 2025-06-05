@@ -17,9 +17,9 @@ dias_es = {
 def formatear_monto(valor):
     return f"${valor:,.0f}".replace(",", ".")  # separador de miles con punto
 
-@st.cache_data
-def load_data():
-    xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
+# Cargar archivo Excel desde subida del usuario
+def load_data(uploaded_file):
+    xls = pd.ExcelFile(uploaded_file)
     df = pd.read_excel(xls, sheet_name="bases")
 
     headers = df.iloc[0].tolist()
@@ -27,48 +27,46 @@ def load_data():
     df.columns = [str(h).strip() for h in headers]
     df.columns = [c.strip() for c in df.columns]
 
-    # Renombrar columnas
     df.rename(columns={
         "WIN TGM": "Win TGM",
-        "COIN IN": "CI TGM",
+        "COIN IN": "Coin In",
         "WIN MESAS": "Win Mesas",
-        "DROP": "DROP Mesas"
     }, inplace=True)
 
-    # Convertir fechas
-    df.rename(columns={df.columns[0]: "fecha"}, inplace=True)
-    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
-    df["día_semana_en"] = df["fecha"].dt.day_name().map(dias_es)
-    df["fecha"] = df["fecha"].dt.strftime('%d/%m/%Y')
-
-    # Limpiar montos
-    for col in ["Win TGM", "CI TGM", "Win Mesas", "DROP Mesas"]:
-        if col in df.columns:
-            df[col] = (
-                df[col]
-                .astype(str)
-                .apply(lambda x: re.sub(r"[^\d]", "", x))  # solo números
-                .astype(float)
-            )
     return df
 
+# Extraer valor por nombre de columna (seguro)
+def get_val(df, col):
+    if col in df.columns and not pd.isnull(df[col].iat[0]):
+        return int(float(df[col].iat[0]))
+    return 0
+
 # Interfaz Streamlit
-st.markdown("<h1 style='text-align: center;'>📊 Presupuesto Diario Casino Enjoy Los Ángeles</h1>", unsafe_allow_html=True)
+st.title("📊 Presupuesto Diario Casino Enjoy Los Ángeles")
 
-fecha_seleccionada = st.date_input("Selecciona una fecha")
+fecha = st.date_input("Selecciona una fecha")
+st.write(f"Fecha seleccionada: {fecha.strftime('%Y-%m-%d')} ({dias_es[fecha.strftime('%A')]})")
 
-df_bases = load_data()
-fila = df_bases[df_bases["fecha"] == fecha_seleccionada.strftime("%d/%m/%Y")]
+uploaded_file = st.file_uploader("Sube el archivo CIERRE_PPTO_2025.xlsx", type="xlsx")
 
-if not fila.empty:
-    fila = fila.iloc[0]
+if uploaded_file is not None:
+    df = load_data(uploaded_file)
 
-    st.markdown(f"### 📅 {fila['día_semana_en']} - {fila['fecha']}")
-    st.markdown(f"### 🎰 Win TGM: <span style='color:green'>{formatear_monto(fila['Win TGM'])}</span>", unsafe_allow_html=True)
-    st.markdown(f"### 🪙 CI TGM: <span style='color:green'>{formatear_monto(fila['CI TGM'])}</span>", unsafe_allow_html=True)
-    st.markdown(f"### 🎲 Win Mesas: <span style='color:green'>{formatear_monto(fila['Win Mesas'])}</span>", unsafe_allow_html=True)
-    st.markdown(f"### 📉 DROP Mesas: <span style='color:green'>{formatear_monto(fila['DROP Mesas'])}</span>", unsafe_allow_html=True)
+    win_tgm = get_val(df, "Win TGM")
+    coin_in = get_val(df, "Coin In")
+    win_mesas = get_val(df, "Win Mesas")
+
+    st.subheader("🔍 Resumen Financiero")
+    st.markdown(f"- **Win TGM:** {formatear_monto(win_tgm)}")
+    st.markdown(f"- **Coin In:** {formatear_monto(coin_in)}")
+    st.markdown(f"- **Win Mesas:** {formatear_monto(win_mesas)}")
+
+    if coin_in > 0:
+        payoff = win_tgm / coin_in
+        st.markdown(f"- **Payoff estimado:** {payoff:.2%}")
+    else:
+        st.markdown("- **Payoff estimado:** No disponible (Coin In = 0)")
 else:
-    st.warning("No hay información disponible para esa fecha.")
+    st.warning("Por favor, sube el archivo Excel para continuar.")
 
 
