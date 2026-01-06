@@ -13,6 +13,10 @@ meses_es = {
 }
 
 def formatear_monto(valor):
+    try:
+        valor = int(valor)
+    except:
+        valor = 0
     return f"${valor:,.0f}".replace(",", ".")
 
 @st.cache_data
@@ -20,9 +24,14 @@ def load_data():
     xls = pd.ExcelFile("CIERRE_PPTO_2025.xlsx")
     df = pd.read_excel(xls, sheet_name="bases")
 
+    # La primera fila trae los nombres reales de columnas
     df.columns = df.iloc[0]
     df = df[1:].copy()
 
+    # Limpiar nombres de columnas (por espacios, saltos raros, etc.)
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Renombrar a nombres consistentes
     df.rename(columns={
         "dia": "Fecha",
         "WIN TGM": "Win TGM",
@@ -31,7 +40,9 @@ def load_data():
         "DROP": "Drop Mesas"
     }, inplace=True)
 
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
+    # Convertir Fecha robusto (formato chileno) + eliminar hora
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce", dayfirst=True).dt.normalize()
+
     return df
 
 def get_val(fila, col):
@@ -50,15 +61,17 @@ st.markdown("📆 **Selecciona una fecha (formato: día/mes/año):**")
 fecha = st.date_input("", format="DD/MM/YYYY")
 
 # Mostrar fecha formateada
-dia_semana = dias_es[fecha.strftime('%A')]
+dia_semana = dias_es.get(fecha.strftime('%A'), fecha.strftime('%A'))
 dia = fecha.day
-mes = meses_es[fecha.month]
+mes = meses_es.get(fecha.month, str(fecha.month))
 anio = fecha.year
 st.markdown(f"📅 **{dia_semana} {dia:02d} de {mes} de {anio}**")
 
 try:
     df = load_data()
-    df_filtrado = df[df["Fecha"] == pd.to_datetime(fecha)]
+
+    # ✅ Filtro robusto: compara por día (ignora hora)
+    df_filtrado = df[df["Fecha"].dt.date == fecha]
 
     if not df_filtrado.empty:
         fila = df_filtrado.iloc[0]
@@ -82,8 +95,11 @@ try:
     else:
         st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
 
+        # Debug opcional (si quieres ver qué fechas hay realmente)
+        # st.write("Rango de fechas:", df["Fecha"].min(), df["Fecha"].max())
+        # st.write("Ejemplos:", df["Fecha"].dropna().head(10))
+
 except FileNotFoundError:
     st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
 except Exception as e:
     st.error(f"❌ Error: {e}")
-
