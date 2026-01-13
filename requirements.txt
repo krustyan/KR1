@@ -1,3 +1,13 @@
 streamlit
 pandas
 openpyxl
+fastapi
+uvicorn
+sqlmodel
+structlog
+prometheus-client
+httpx
+pytest
+pytest-asyncio
+ruff
+black

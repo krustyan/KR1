@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    image: ppto-api:staging
+    environment:
+      - PPTO_DATABASE_URL=sqlite:///./data/ppto.db
+      - PPTO_LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
