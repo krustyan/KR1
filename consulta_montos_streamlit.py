@@ -49,7 +49,6 @@ def tarjeta(icono, titulo, monto, clase):
         <div class="metric-icon">{icono}</div>
         <div class="metric-title">{titulo}</div>
         <div class="metric-value">{formatear_monto(monto)}</div>
-        <div class="metric-caption">Total del día</div>
     </div>
     """
 
@@ -92,55 +91,62 @@ st.set_page_config(page_title="PPTO Enjoy Los Ángeles", page_icon="📊", layou
 st.markdown("""
 <style>
     .block-container {
-        padding-top: 1.4rem;
-        padding-bottom: 2rem;
-        max-width: 900px;
+        padding-top: 0.7rem;
+        padding-bottom: 1rem;
+        max-width: 760px;
     }
 
     .main-title {
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: 800;
-        margin-bottom: 0.2rem;
+        margin: 0 0 0.25rem 0;
         letter-spacing: -0.02em;
     }
 
     .date-title {
-        font-size: 1.55rem;
+        font-size: 1.25rem;
         font-weight: 750;
-        margin: 1.2rem 0 1rem 0;
+        margin: 0.65rem 0 0.65rem 0;
+    }
+
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+        width: 100%;
     }
 
     .metric-card {
-        border-radius: 20px;
-        padding: 1.25rem;
-        min-height: 190px;
+        border-radius: 16px;
+        padding: 0.85rem;
+        min-height: 122px;
         border: 1px solid rgba(255,255,255,0.10);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-        margin-bottom: 1rem;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
     }
 
     .metric-icon {
-        font-size: 2.2rem;
-        margin-bottom: 1rem;
-    }
-
-    .metric-title {
-        font-size: 1.2rem;
-        font-weight: 700;
+        font-size: 1.6rem;
+        line-height: 1;
         margin-bottom: 0.55rem;
     }
 
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 850;
-        line-height: 1.1;
-        margin-bottom: 0.65rem;
-        letter-spacing: -0.02em;
+    .metric-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+        white-space: nowrap;
     }
 
-    .metric-caption {
-        color: #a8b0bd;
-        font-size: 0.95rem;
+    .metric-value {
+        font-size: clamp(1.05rem, 4.8vw, 1.65rem);
+        font-weight: 850;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        white-space: nowrap;
     }
 
     .tgm {
@@ -170,30 +176,82 @@ st.markdown("""
     .info-box {
         border: 1px solid rgba(255,255,255,0.10);
         background: rgba(255,255,255,0.035);
-        border-radius: 16px;
-        padding: 1rem 1.15rem;
-        color: #c7ced8;
-        margin-top: 0.4rem;
-        font-size: 0.95rem;
+        border-radius: 12px;
+        padding: 0.65rem 0.8rem;
+        color: #aeb6c2;
+        margin-top: 0.65rem;
+        font-size: 0.78rem;
+        line-height: 1.35;
     }
 
     div[data-testid="stDateInput"] input {
-        border-radius: 14px;
+        border-radius: 12px;
+    }
+
+    div[data-testid="stDateInput"] {
+        margin-bottom: -0.35rem;
+    }
+
+    div[data-testid="stButton"] button {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        min-height: 2.2rem;
     }
 
     @media (max-width: 640px) {
-        .main-title { font-size: 2.15rem; }
-        .date-title { font-size: 1.3rem; }
-        .metric-card { min-height: 165px; padding: 1rem; }
-        .metric-value { font-size: 1.6rem; }
+        .block-container {
+            padding-left: 0.8rem;
+            padding-right: 0.8rem;
+            padding-top: 0.45rem;
+        }
+
+        .main-title {
+            font-size: 1.7rem;
+        }
+
+        .date-title {
+            font-size: 1.05rem;
+            margin: 0.5rem 0 0.55rem 0;
+        }
+
+        .metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .metric-card {
+            min-height: 108px;
+            border-radius: 14px;
+            padding: 0.7rem;
+        }
+
+        .metric-icon {
+            font-size: 1.35rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .metric-title {
+            font-size: 0.82rem;
+            margin-bottom: 0.28rem;
+        }
+
+        .metric-value {
+            font-size: clamp(0.93rem, 4.35vw, 1.25rem);
+        }
+
+        .info-box {
+            font-size: 0.72rem;
+            padding: 0.55rem 0.65rem;
+            margin-top: 0.5rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">📊 PPTO</div>', unsafe_allow_html=True)
 
-# Botón para forzar recarga
-colA, colB = st.columns([1, 3])
+# Recarga compacta
+colA, colB = st.columns([1, 2.2])
 with colA:
     if st.button("🔄 Recargar"):
         st.cache_data.clear()
@@ -206,7 +264,7 @@ with colB:
         )
 
 # Selección de fecha
-st.markdown("📆 **Selecciona una fecha (formato: día/mes/año):**")
+st.markdown("📆 **Selecciona una fecha:**")
 fecha = st.date_input("", format="DD/MM/YYYY", label_visibility="collapsed")
 
 # Mostrar fecha formateada
@@ -240,22 +298,20 @@ try:
         win_mesas = to_int(fila.get("Win Mesas"))
         drop_mesas = to_int(fila.get("Drop Mesas"))
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(tarjeta("🎰", "Win TGM", win_tgm, "tgm"), unsafe_allow_html=True)
-        with col2:
-            st.markdown(tarjeta("💵", "Coin In", coin_in, "coin"), unsafe_allow_html=True)
-
-        col3, col4 = st.columns(2)
-        with col3:
-            st.markdown(tarjeta("🎲", "Win Mesas", win_mesas, "mesas"), unsafe_allow_html=True)
-        with col4:
-            st.markdown(tarjeta("🪙", "Drop Mesas", drop_mesas, "drop"), unsafe_allow_html=True)
+        # Grid HTML propio para mantener 2 columnas también en teléfono
+        tarjetas_html = f"""
+        <div class="metric-grid">
+            {tarjeta("🎰", "Win TGM", win_tgm, "tgm")}
+            {tarjeta("💵", "Coin In", coin_in, "coin")}
+            {tarjeta("🎲", "Win Mesas", win_mesas, "mesas")}
+            {tarjeta("🪙", "Drop Mesas", drop_mesas, "drop")}
+        </div>
+        """
+        st.markdown(tarjetas_html, unsafe_allow_html=True)
 
         actualizado = time.strftime('%d/%m/%Y %H:%M', time.localtime(os.path.getmtime(FILE_PATH)))
         st.markdown(
-            f'<div class="info-box">ℹ️ Los montos están expresados en pesos chilenos (CLP).<br>'
-            f'<span style="color:#8f98a6;">Actualizado: {actualizado}</span></div>',
+            f'<div class="info-box">ℹ️ Montos en pesos chilenos (CLP) · Actualizado: {actualizado}</div>',
             unsafe_allow_html=True
         )
 
