@@ -31,10 +31,10 @@ def boton_copiar_ppto(fecha_texto, valores):
         {
             "fecha": fecha_texto,
             "items": [
-                {"titulo": "Win TGM", "valor": formatear_monto(valores[0]), "color": "#38d879", "fondo": "#092d23"},
-                {"titulo": "Coin In", "valor": formatear_monto(valores[1]), "color": "#4c9cff", "fondo": "#0c2038"},
-                {"titulo": "Win Mesas", "valor": formatear_monto(valores[2]), "color": "#b45eff", "fondo": "#281b3d"},
-                {"titulo": "Drop Mesas", "valor": formatear_monto(valores[3]), "color": "#f2be2d", "fondo": "#302a17"},
+                {"icono": "🎰", "titulo": "Win TGM", "valor": formatear_monto(valores[0]), "color": "#38d879", "fondo": "#092d23"},
+                {"icono": "💵", "titulo": "Coin In", "valor": formatear_monto(valores[1]), "color": "#4c9cff", "fondo": "#0c2038"},
+                {"icono": "🎲", "titulo": "Win Mesas", "valor": formatear_monto(valores[2]), "color": "#b45eff", "fondo": "#281b3d"},
+                {"icono": "🪙", "titulo": "Drop Mesas", "valor": formatear_monto(valores[3]), "color": "#f2be2d", "fondo": "#302a17"},
             ],
         },
         ensure_ascii=False,
@@ -51,8 +51,9 @@ def boton_copiar_ppto(fecha_texto, valores):
     };
     boton.onclick = async () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 900; canvas.height = 470;
+      canvas.width = 1800; canvas.height = 940;
       const ctx = canvas.getContext('2d');
+      ctx.scale(2, 2);
       ctx.fillStyle = '#0e1117'; ctx.fillRect(0,0,900,470);
       ctx.fillStyle = '#f8fafc'; ctx.font = '700 30px Arial';
       ctx.fillText('PPTO DE LA JORNADA', 34, 52);
@@ -63,10 +64,12 @@ def boton_copiar_ppto(fecha_texto, valores):
         const x = 34 + col * 421, y = 118 + fila * 158;
         ctx.fillStyle = item.fondo; redondeado(ctx,x,y,399,136,17);
         ctx.fillStyle = item.color; ctx.fillRect(x,y+132,399,4);
-        ctx.fillStyle = '#f8fafc'; ctx.font = '700 21px Arial';
-        ctx.fillText(item.titulo, x+22, y+43);
-        ctx.fillStyle = item.color; ctx.font = '800 32px Arial';
-        ctx.fillText(item.valor, x+22, y+94);
+        ctx.font = '30px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+        ctx.fillText(item.icono, x+22, y+42);
+        ctx.fillStyle = '#f8fafc'; ctx.font = '700 21px Arial,sans-serif';
+        ctx.fillText(item.titulo, x+68, y+40);
+        ctx.fillStyle = item.color; ctx.font = '800 32px Arial,sans-serif';
+        ctx.fillText(item.valor, x+22, y+96);
       });
       try {
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
