@@ -80,6 +80,7 @@ def campo_monto(etiqueta, valor, clave, deshabilitado=False):
         data={"label": etiqueta, "value": actual, "disabled": deshabilitado},
         default={"value": actual},
         key=clave,
+        on_value_change=lambda: None,
     )
     return entero(resultado.value if resultado.value is not None else actual)
 
