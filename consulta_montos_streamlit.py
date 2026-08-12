@@ -42,6 +42,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">📊 PPTO</div>', unsafe_allow_html=True)
+st.page_link("pages/Informe_de_cierre.py", label="📝 Generar informe de cierre")
 colA,colB=st.columns([1,2.2])
 with colA:
     if st.button("🔄 Recargar"):
