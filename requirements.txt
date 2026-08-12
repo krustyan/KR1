@@ -2,4 +2,3 @@ streamlit>=1.51.0
 pandas
 openpyxl
 Pillow
-pytesseract
