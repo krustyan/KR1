@@ -278,6 +278,9 @@ div[data-testid='stNumberInput'] input{text-align:right}
   h1{font-size:1.65rem!important}
   h2,h3{font-size:1.2rem!important}
 }
+.salon-compacto{margin-top:0.15rem}
+.salon-compacto span{display:block;font-size:0.875rem;font-weight:600;margin-bottom:0.25rem}
+.salon-compacto strong{display:block;font-size:1rem;line-height:1.25;font-weight:500;white-space:normal;overflow-wrap:anywhere}
 </style>""", unsafe_allow_html=True)
 st.page_link("app_pages/consulta_ppto.py", label="← Volver a CONSULTA PPTO")
 st.title("📝 Informe de cierre")
@@ -358,7 +361,10 @@ if sobre_millon > 0:
         categoria = j3.selectbox("Categoría", CATEGORIAS, key=f"cat_{fecha}_{i}")
         salon, _banco = maquinas.get(maquina, ("—", "—"))
         d1, d2 = st.columns([1, 2])
-        d1.metric("Salón", salon)
+        d1.markdown(
+            f'<div class="salon-compacto"><span>Salón</span><strong>{salon}</strong></div>',
+            unsafe_allow_html=True,
+        )
         cliente = d2.text_input("Cliente (opcional)", key=f"cliente_{fecha}_{i}")
         jackpots.append((monto, maquina or "", salon if maquina else "—", categoria, cliente))
 
