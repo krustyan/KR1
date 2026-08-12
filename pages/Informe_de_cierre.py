@@ -12,6 +12,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
+MAQUINAS_PATH = "data/maquinas.tsv"
+CATEGORIAS = ["Silver", "Gold", "Platinum", "Diamond", "Seven Star"]
 
 
 def jornada_actual():
@@ -73,6 +75,14 @@ def cargar_presupuestos(fecha):
     }
 
 
+@st.cache_data
+def cargar_maquinas():
+    if not os.path.exists(MAQUINAS_PATH):
+        return {}
+    df = pd.read_csv(MAQUINAS_PATH, sep="\t", dtype=str, names=["maquina", "salon", "banco"])
+    return {fila.maquina: (fila.salon, fila.banco) for fila in df.itertuples(index=False)}
+
+
 def fuente(tamano, negrita=False):
     nombres = ["DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrita else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
     for nombre in nombres:
@@ -83,13 +93,13 @@ def fuente(tamano, negrita=False):
     return ImageFont.load_default()
 
 
-def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots, ingresos):
+def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon, novedades, jackpots, ingresos):
     ancho, margen = 960, 28
     filas_novedades = []
     for area, texto in novedades.items():
         lineas = textwrap.wrap(texto.strip() or "Sin novedades", width=66) or ["Sin novedades"]
         filas_novedades.append((area, lineas))
-    alto = 610 + sum(max(56, 26 * len(lineas) + 24) for _, lineas in filas_novedades) + 60 * len(jackpots)
+    alto = 680 + sum(max(56, 26 * len(lineas) + 24) for _, lineas in filas_novedades) + 72 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
     f12, f14, f16, f20, f28 = fuente(20), fuente(22), fuente(24, True), fuente(28, True), fuente(38, True)
@@ -124,8 +134,21 @@ def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots
             d.text((xs[i]+10, y+12), texto, font=f14, fill="#16733b" if i >= 2 and cumplimiento >= 100 else ("#b42318" if i >= 2 else tinta))
         y += 48
     d.rectangle((margen, y, ancho-margen, y+46), fill="white", outline=borde)
-    d.text((margen+12, y+11), f"PO: {po:.1f}%   |   Pagos totales: {pagos}   |   Pagos sobre $1.000.000: {sobre_millon}", font=f14, fill=tinta)
+    resumen = f"PO Jornada: {po:.2f}%  |  Pagos: {cantidad_pagos}  |  Monto: {pesos(monto_pagos)}  |  Sobre $1.000.000: {sobre_millon}"
+    d.text((margen+12, y+11), resumen.replace(".", ",", 1), font=f14, fill=tinta)
     y += 58
+
+    if jackpots:
+        titulo("JACKPOTS TGM")
+        for monto, maquina, salon, banco, categoria, cliente in jackpots:
+            d.rectangle((margen, y, ancho-margen, y+64), fill="#fff7df", outline=borde)
+            detalle = f"{categoria} · Máquina {maquina} · {salon} · {banco}"
+            if cliente.strip():
+                detalle = f"{cliente.strip()} · {detalle}"
+            d.text((margen+12, y+8), pesos(monto), font=f16, fill=tinta)
+            d.text((margen+190, y+10), detalle, font=f12, fill=tinta)
+            y += 64
+        y += 12
 
     titulo("NOVEDADES")
     for area, lineas in filas_novedades:
@@ -135,12 +158,6 @@ def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots
         d.rectangle((margen+190, y, ancho-margen, y+h), fill="white", outline=borde)
         d.multiline_text((margen+206, y+12), "\n".join(lineas), font=f12, fill=tinta, spacing=5)
         y += h
-    for monto, tipo, detalle in jackpots:
-        if not (monto or detalle.strip()):
-            continue
-        d.rectangle((margen, y, ancho-margen, y+52), fill="#fff7df", outline=borde)
-        d.text((margen+12, y+13), f"TGM · {pesos(monto)} · {tipo} · {detalle.strip()}", font=f14, fill=tinta)
-        y += 52
     y += 12
 
     titulo("INGRESOS")
@@ -180,23 +197,41 @@ for indice, nombre in enumerate(presupuestos):
 win_tgm_real = resultados[2][2]
 coin_in_real = resultados[3][2]
 po = (1 - (win_tgm_real / coin_in_real)) * 100 if coin_in_real else 0.0
-c1, c2, c3 = st.columns(3)
-c1.metric("PO calculado", f"{po:.2f}%".replace(".", ","), help="100 × (1 − Win TGM real ÷ Coin In real)")
-pagos = c2.text_input("Pagos totales", placeholder="Ej.: 8 x $4.258.905")
-sobre_millon = c3.number_input("Pagos sobre millón", min_value=0, value=0, step=1)
+c1, c2 = st.columns([1, 2])
+c1.metric("PO Jornada", f"{po:.2f}%".replace(".", ","), help="100 × (1 − Win TGM real ÷ Coin In real)")
+with c2:
+    st.markdown("**Pagos totales**")
+    p1, p2, p3 = st.columns(3)
+    cantidad_pagos = p1.number_input("Cantidad", min_value=0, value=0, step=1)
+    with p2:
+        monto_pagos = campo_monto("Monto total", 0, f"pagos_monto_{fecha}")
+    sobre_millon = p3.number_input("Sobre $1.000.000", min_value=0, value=0, step=1)
+
+st.subheader("Jackpots TGM")
+jackpots = []
+if st.checkbox("Agregar jackpots (opcional)"):
+    maquinas = cargar_maquinas()
+    if not maquinas:
+        st.warning("No se pudo cargar la base de máquinas.")
+    cantidad_jackpots = st.number_input("Cantidad de jackpots", min_value=1, max_value=10, value=1, step=1)
+    for i in range(cantidad_jackpots):
+        st.markdown(f"**Jackpot {i + 1}**")
+        j1, j2, j3 = st.columns([1, 1, 1])
+        with j1:
+            monto = campo_monto("Monto", 0, f"jm_{fecha}_{i}")
+        maquina = j2.selectbox("Máquina", options=list(maquinas), index=None, placeholder="Escribe o busca…", key=f"maq_{fecha}_{i}")
+        categoria = j3.selectbox("Categoría", CATEGORIAS, key=f"cat_{fecha}_{i}")
+        salon, banco = maquinas.get(maquina, ("—", "—"))
+        d1, d2, d3 = st.columns([1, 1, 1])
+        d1.metric("Salón", salon)
+        d2.metric("Banco", banco)
+        cliente = d3.text_input("Cliente (opcional)", key=f"cliente_{fecha}_{i}")
+        if maquina:
+            jackpots.append((monto, maquina, salon, banco, categoria, cliente))
 
 st.subheader("Novedades")
 areas = ["MDJ", "EC / TGM", "TO", "SEGURIDAD", "MANTENCIÓN", "TIC", "BAR / COCINA"]
 novedades = {area: st.text_area(area, value="Sin novedades", height=70, key=f"n_{area}") for area in areas}
-
-with st.expander("Jackpots TGM (opcional)"):
-    jackpots = []
-    for i in range(3):
-        c1, c2, c3 = st.columns([1, 1, 2])
-        monto = campo_monto("Monto", 0, f"jm_{fecha}_{i}")
-        tipo = c2.text_input("Tipo", value="Jackpot", key=f"jt_{i}")
-        detalle = c3.text_input("Cliente / Categoría / TGM", key=f"jd_{i}")
-        jackpots.append((monto, tipo, detalle))
 
 st.subheader("Ingresos")
 c1, c2, c3 = st.columns(3)
@@ -205,7 +240,7 @@ cortesias = c2.number_input("Cortesías", min_value=0, value=0, step=1)
 venta = c3.number_input("Venta", min_value=0, value=0, step=1)
 
 if st.button("Generar informe", type="primary", use_container_width=True):
-    st.session_state["informe_png"] = crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots, (total, cortesias, venta))
+    st.session_state["informe_png"] = crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon, novedades, jackpots, (total, cortesias, venta))
 
 if "informe_png" in st.session_state:
     png = st.session_state["informe_png"]
