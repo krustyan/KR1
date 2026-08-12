@@ -13,6 +13,13 @@ FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+MONEDA_COMPONENT = st.components.v2.component(
+    "campo_moneda_parcial_clp",
+    html='''<label class="clp-label"></label><input class="clp-input" inputmode="numeric" autocomplete="off" />''',
+    css='''.clp-label{display:block;color:var(--st-text-color);font-size:.875rem;font-weight:600;margin-bottom:.35rem}.clp-input{width:100%;box-sizing:border-box;min-height:2.5rem;padding:.55rem .75rem;border:1px solid rgba(128,128,128,.35);border-radius:.5rem;background:var(--st-secondary-background-color);color:var(--st-text-color);font:inherit;text-align:right}.clp-input:focus{outline:2px solid var(--st-primary-color);border-color:transparent}''',
+    js='''export default function({parentElement,data,setStateValue}){const label=parentElement.querySelector('.clp-label');const input=parentElement.querySelector('.clp-input');label.textContent=data.label;const format=(raw)=>{const digits=String(raw??'').replace(/\\D/g,'');return digits?'$'+Number(digits).toLocaleString('es-CL'):''};if(document.activeElement!==input&&input.value!==data.value)input.value=data.value??'';input.onfocus=()=>input.select();input.oninput=()=>{input.value=format(input.value);input.setSelectionRange(input.value.length,input.value.length)};const commit=()=>setStateValue('value',input.value);input.onblur=commit;input.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();commit();input.blur()}}}''',
+)
+
 
 def jornada_actual():
     ahora = datetime.now(ZoneInfo("America/Santiago"))
@@ -33,13 +40,15 @@ def pesos(valor):
 
 
 def campo_monto(etiqueta, clave):
-    if clave not in st.session_state:
-        st.session_state[clave] = ""
-
-    def formato():
-        st.session_state[clave] = pesos(st.session_state[clave])
-
-    return entero(st.text_input(etiqueta, key=clave, on_change=formato, placeholder="$0"))
+    estado = st.session_state.get(clave, {})
+    actual = estado.get("value", "") if isinstance(estado, dict) else ""
+    resultado = MONEDA_COMPONENT(
+        data={"label": etiqueta, "value": actual},
+        default={"value": actual},
+        key=clave,
+        on_value_change=lambda: None,
+    )
+    return entero(resultado.value if resultado.value is not None else actual)
 
 
 @st.cache_data
@@ -74,7 +83,7 @@ def estado_avance(avance):
     return "EN DESARROLLO", "#1769aa", "#dceeff"
 
 
-def crear_imagen(fecha, hora, ppto, win, coin, ingresos):
+def crear_imagen(fecha, ppto, win, coin, ingresos):
     avance = win / ppto * 100 if ppto else 0
     estado, color, fondo = estado_avance(avance)
     ancho, alto, margen = 900, 360, 26
@@ -82,7 +91,7 @@ def crear_imagen(fecha, hora, ppto, win, coin, ingresos):
     d = ImageDraw.Draw(img)
     f14, f18, f24, f34 = fuente(18), fuente(22, True), fuente(28, True), fuente(38, True)
     d.rounded_rectangle((margen, 22, ancho-margen, 82), 14, fill="#10324b")
-    titulo = f"INFORME PARCIAL | {fecha:%d-%m-%Y} | {hora}"
+    titulo = f"INFORME PARCIAL | {fecha:%d-%m-%Y}"
     caja = d.textbbox((0, 0), titulo, font=f34)
     d.text(((ancho-(caja[2]-caja[0]))/2, 31), titulo, font=f34, fill="white")
     d.rounded_rectangle((margen, 96, ancho-margen, 143), 10, fill=fondo, outline=color, width=2)
@@ -115,9 +124,7 @@ st.markdown("<style>.block-container{max-width:760px;padding-top:1rem}</style>",
 st.title("⏱️ Informe parcial")
 st.caption("Avance acumulado respecto del presupuesto total de la jornada.")
 
-c1, c2 = st.columns(2)
-fecha = c1.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
-hora = c2.time_input("Hora del corte", value=datetime.now(ZoneInfo("America/Santiago")).time().replace(second=0, microsecond=0)).strftime("%H:%M")
+fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
 ppto = presupuesto_win(fecha)
 st.metric("PPTO Win TGM del día", pesos(ppto))
 
@@ -134,12 +141,12 @@ estado, _, _ = estado_avance(avance)
 st.metric("Avance PPTO diario", f"{avance:.1f}%".replace(".", ","), estado)
 
 if st.button("Generar informe parcial", type="primary", use_container_width=True):
-    st.session_state["parcial_png"] = crear_imagen(fecha, hora, ppto, win, coin, ingresos)
+    st.session_state["parcial_png"] = crear_imagen(fecha, ppto, win, coin, ingresos)
 
 if "parcial_png" in st.session_state:
     png = st.session_state["parcial_png"]
     st.image(png, use_container_width=True)
-    st.download_button("Descargar PNG", png, file_name=f"informe_parcial_{fecha:%d-%m-%Y}_{hora.replace(':','-')}.png", mime="image/png", use_container_width=True)
+    st.download_button("Descargar PNG", png, file_name=f"informe_parcial_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
     b64 = base64.b64encode(png).decode("ascii")
     components.html(f'''<button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif">Copiar imagen</button><div id="msg"></div><script>document.getElementById('copy').onclick=async()=>{{try{{const blob=await(await fetch('data:image/png;base64,{b64}')).blob();await navigator.clipboard.write([new ClipboardItem({{'image/png':blob}})]);document.getElementById('msg').textContent='Imagen copiada.'}}catch(e){{document.getElementById('msg').textContent='Usa Descargar PNG.'}}}}</script>''', height=68)
 
