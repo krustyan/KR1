@@ -163,7 +163,15 @@ def crear_imagen(fecha, ppto, win, coin, ingresos):
 
 
 st.set_page_config(page_title="Informe parcial", page_icon="⏱️", layout="centered")
-st.markdown("<style>.block-container{max-width:760px;padding-top:1rem}</style>", unsafe_allow_html=True)
+st.markdown("""<style>
+.block-container{max-width:760px;padding-top:1rem}
+@media (max-width:640px){
+  .block-container{padding:0.65rem 0.65rem 2rem}
+  div[data-testid='stHorizontalBlock']{gap:0.55rem}
+  div[data-testid='stHorizontalBlock']>div{min-width:min(100%,200px)}
+  h1{font-size:1.65rem!important}
+}
+</style>""", unsafe_allow_html=True)
 st.title("⏱️ Informe parcial")
 st.caption("Avance acumulado respecto del presupuesto total de la jornada.")
 
@@ -175,8 +183,18 @@ def limpiar_borrador():
             del st.session_state[clave]
 
 if st.button("Limpiar informe parcial", use_container_width=True):
-    limpiar_borrador()
-    st.rerun()
+    st.session_state["confirmar_limpieza_parcial"] = True
+
+if st.session_state.get("confirmar_limpieza_parcial"):
+    st.warning("¿Seguro que quieres borrar todos los datos del informe parcial?")
+    confirmar, cancelar = st.columns(2)
+    if confirmar.button("Sí, limpiar", type="primary", use_container_width=True):
+        limpiar_borrador()
+        st.session_state.pop("confirmar_limpieza_parcial", None)
+        st.rerun()
+    if cancelar.button("Cancelar", use_container_width=True):
+        st.session_state["confirmar_limpieza_parcial"] = False
+        st.rerun()
 
 borrador = st.session_state.get(BORRADOR_KEY, {})
 for clave, valor in borrador.items():
@@ -202,14 +220,38 @@ st.metric("Avance PPTO diario", f"{avance:.1f}%".replace(".", ","), estado)
 # Guardado automático para conservar el trabajo al cambiar de página.
 claves_borrador = [clave for clave in st.session_state if clave.startswith("parcial_")]
 st.session_state[BORRADOR_KEY] = {clave: st.session_state[clave] for clave in claves_borrador}
+st.session_state["ultimo_guardado_parcial"] = datetime.now(ZoneInfo("America/Santiago")).strftime("%H:%M")
+st.caption(f"✓ Borrador guardado · Último cambio: {st.session_state['ultimo_guardado_parcial']}")
+
+def campo_completado(clave):
+    valor = st.session_state.get(clave, "")
+    if isinstance(valor, dict):
+        valor = valor.get("value", "")
+    return str(valor).strip() not in ("", "-", "-$")
 
 if st.button("Generar informe parcial", type="primary", use_container_width=True):
-    st.session_state["parcial_png"] = crear_imagen(fecha, ppto, win, coin, ingresos)
+    problemas = []
+    if ppto == 0:
+        problemas.append("No existe un presupuesto Win TGM para esta jornada.")
+    if not campo_completado(f"parcial_win_{fecha}"):
+        problemas.append("Falta completar Win acumulado.")
+    if not campo_completado(f"parcial_coin_{fecha}"):
+        problemas.append("Falta completar Coin In acumulado.")
+    if not campo_completado(f"parcial_ingresos_{fecha}"):
+        problemas.append("Falta completar Ingresos.")
+    if problemas:
+        st.error("No se puede generar todavía. Revisa lo siguiente:")
+        for problema in problemas:
+            st.markdown(f"- {problema}")
+    else:
+        st.session_state["parcial_png"] = crear_imagen(fecha, ppto, win, coin, ingresos)
+        st.success("Informe revisado y generado correctamente.")
 
 if "parcial_png" in st.session_state:
     png = st.session_state["parcial_png"]
-    st.image(png, use_container_width=True)
-    st.download_button("Descargar PNG", png, file_name=f"informe_parcial_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
-    b64 = base64.b64encode(png).decode("ascii")
-    components.html(f'''<button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif">Copiar imagen</button><div id="msg"></div><script>document.getElementById('copy').onclick=async()=>{{try{{const blob=await(await fetch('data:image/png;base64,{b64}')).blob();await navigator.clipboard.write([new ClipboardItem({{'image/png':blob}})]);document.getElementById('msg').textContent='Imagen copiada.'}}catch(e){{document.getElementById('msg').textContent='Usa Descargar PNG.'}}}}</script>''', height=68)
+    with st.expander("Vista previa y descarga", expanded=False):
+        st.image(png, use_container_width=True)
+        st.download_button("Descargar PNG", png, file_name=f"informe_parcial_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
+        b64 = base64.b64encode(png).decode("ascii")
+        components.html(f'''<button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif">Copiar imagen</button><div id="msg"></div><script>document.getElementById('copy').onclick=async()=>{{try{{const blob=await(await fetch('data:image/png;base64,{b64}')).blob();await navigator.clipboard.write([new ClipboardItem({{'image/png':blob}})]);document.getElementById('msg').textContent='Imagen copiada.'}}catch(e){{document.getElementById('msg').textContent='Usa Descargar PNG.'}}}}</script>''', height=68)
 
