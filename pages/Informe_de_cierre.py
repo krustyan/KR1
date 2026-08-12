@@ -267,7 +267,18 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
 
 
 st.set_page_config(page_title="Informe de cierre", page_icon="📝", layout="centered")
-st.markdown("<style>.block-container{max-width:850px;padding-top:1rem} div[data-testid='stTextInput'] input{text-align:right;font-variant-numeric:tabular-nums} div[data-testid='stNumberInput'] input{text-align:right}</style>", unsafe_allow_html=True)
+st.markdown("""<style>
+.block-container{max-width:850px;padding-top:1rem}
+div[data-testid='stTextInput'] input{text-align:right;font-variant-numeric:tabular-nums}
+div[data-testid='stNumberInput'] input{text-align:right}
+@media (max-width:640px){
+  .block-container{padding:0.65rem 0.65rem 2rem}
+  div[data-testid='stHorizontalBlock']{gap:0.55rem}
+  div[data-testid='stHorizontalBlock']>div{min-width:min(100%,220px)}
+  h1{font-size:1.65rem!important}
+  h2,h3{font-size:1.2rem!important}
+}
+</style>""", unsafe_allow_html=True)
 st.page_link("app_pages/consulta_ppto.py", label="← Volver a CONSULTA PPTO")
 st.title("📝 Informe de cierre")
 st.caption("Completa los datos y genera una imagen lista para enviar.")
@@ -284,8 +295,18 @@ def limpiar_borrador():
             del st.session_state[clave]
 
 if st.button("Limpiar informe", use_container_width=True):
-    limpiar_borrador()
-    st.rerun()
+    st.session_state["confirmar_limpieza_cierre"] = True
+
+if st.session_state.get("confirmar_limpieza_cierre"):
+    st.warning("¿Seguro que quieres borrar todos los datos del informe?")
+    confirmar, cancelar = st.columns(2)
+    if confirmar.button("Sí, limpiar", type="primary", use_container_width=True):
+        limpiar_borrador()
+        st.session_state.pop("confirmar_limpieza_cierre", None)
+        st.rerun()
+    if cancelar.button("Cancelar", use_container_width=True):
+        st.session_state["confirmar_limpieza_cierre"] = False
+        st.rerun()
 
 borrador = st.session_state.get(BORRADOR_KEY, {})
 for clave, valor in borrador.items():
@@ -339,12 +360,14 @@ if sobre_millon > 0:
         d1, d2 = st.columns([1, 2])
         d1.metric("Salón", salon)
         cliente = d2.text_input("Cliente (opcional)", key=f"cliente_{fecha}_{i}")
-        if maquina:
-            jackpots.append((monto, maquina, salon, categoria, cliente))
+        jackpots.append((monto, maquina or "", salon if maquina else "—", categoria, cliente))
 
 st.subheader("Novedades")
 areas = ["MDJ", "EC / TGM", "TO", "SEGURIDAD", "MANTENCIÓN", "TIC", "BAR / COCINA"]
-novedades = {area: st.text_area(area, value="Sin novedades", height=70, key=f"n_{area}") for area in areas}
+novedades = {
+    area: st.text_area(area, value="", placeholder="Sin novedades", height=70, key=f"n_{area}")
+    for area in areas
+}
 
 st.subheader("Ingresos")
 c1, c2, c3 = st.columns(3)
@@ -361,18 +384,66 @@ claves_borrador = [
     if clave.startswith(("r_", "jm_", "maq_", "cat_", "cliente_", "cantidad_premios_", "pagos_monto_", "sobre_millon_", "ingreso_total_", "ingreso_cortesias_", "n_"))
 ]
 st.session_state[BORRADOR_KEY] = {clave: st.session_state[clave] for clave in claves_borrador}
+st.session_state["ultimo_guardado_cierre"] = datetime.now(ZoneInfo("America/Santiago")).strftime("%H:%M")
+st.caption(f"✓ Borrador guardado · Último cambio: {st.session_state['ultimo_guardado_cierre']}")
+
+def campo_completado(clave):
+    valor = st.session_state.get(clave, "")
+    if isinstance(valor, dict):
+        valor = valor.get("value", "")
+    return str(valor).strip() not in ("", "-", "-$")
+
+def revisar_informe():
+    problemas = []
+    for indice, nombre in enumerate(presupuestos):
+        if not campo_completado(f"r_{fecha}_{indice}"):
+            problemas.append(f"Falta completar Resultado de {nombre}.")
+    if not campo_completado(f"ingreso_total_{fecha}"):
+        problemas.append("Falta completar Ingresos: Total.")
+    if not campo_completado(f"ingreso_cortesias_{fecha}"):
+        problemas.append("Falta completar Ingresos: Cortesías.")
+
+    suma_jackpots = 0
+    for indice in range(sobre_millon):
+        numero = indice + 1
+        if indice >= len(jackpots) or jackpots[indice][0] <= 0:
+            problemas.append(f"Falta un monto válido en Jackpot {numero}.")
+        else:
+            suma_jackpots += jackpots[indice][0]
+        if not st.session_state.get(f"maq_{fecha}_{indice}"):
+            problemas.append(f"Falta seleccionar la máquina en Jackpot {numero}.")
+        if not st.session_state.get(f"cat_{fecha}_{indice}"):
+            problemas.append(f"Falta seleccionar la categoría en Jackpot {numero}.")
+    if sobre_millon > 0 and not campo_completado(f"pagos_monto_{fecha}"):
+        problemas.append("Falta completar el monto total de premios.")
+    elif suma_jackpots > monto_pagos:
+        problemas.append(
+            f"El monto total de premios ({pesos(monto_pagos)}) no puede ser menor "
+            f"que la suma de jackpots sobre $1 millón ({pesos(suma_jackpots)})."
+        )
+    return problemas
 
 if st.button("Generar informe", type="primary", use_container_width=True):
-    st.session_state["informe_png"] = crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon, novedades, jackpots, (total, cortesias, venta))
+    problemas = revisar_informe()
+    if problemas:
+        st.error("No se puede generar todavía. Revisa lo siguiente:")
+        for problema in problemas:
+            st.markdown(f"- {problema}")
+    else:
+        st.session_state["informe_png"] = crear_imagen(
+            fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon,
+            novedades, jackpots, (total, cortesias, venta)
+        )
+        st.success("Informe revisado y generado correctamente.")
 
 if "informe_png" in st.session_state:
     png = st.session_state["informe_png"]
     st.divider()
-    st.subheader("Vista previa")
-    st.image(png, use_container_width=True)
-    st.download_button("Descargar PNG", png, file_name=f"informe_cierre_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
-    b64 = base64.b64encode(png).decode("ascii")
-    components.html(f"""
+    with st.expander("Vista previa y descarga", expanded=False):
+        st.image(png, use_container_width=True)
+        st.download_button("Descargar PNG", png, file_name=f"informe_cierre_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
+        b64 = base64.b64encode(png).decode("ascii")
+        components.html(f"""
     <button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif;cursor:pointer">Copiar imagen</button>
     <div id="msg" style="font:14px sans-serif;margin-top:8px;color:#334155"></div>
     <script>
