@@ -2,6 +2,7 @@ import base64
 import io
 import os
 import re
+import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -138,6 +139,24 @@ def convertir_numero(bruto):
     return -numero if negativo else numero
 
 
+def clasificar_captura(archivo):
+    imagen = ImageOps.exif_transpose(Image.open(archivo)).convert("RGB")
+    escala = max(1, min(4, 1800 // max(1, imagen.width)))
+    imagen = imagen.resize((imagen.width*escala, imagen.height*escala))
+    gris = ImageOps.autocontrast(imagen.convert("L"))
+    textos = [pytesseract.image_to_string(gris, config=f"--psm {psm}") for psm in (6, 11)]
+    texto = "\n".join(textos)
+    normalizado = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+    compacto = re.sub(r"[^a-z0-9]", "", normalizado)
+    if "jugado" in compacto or "jvgado" in compacto:
+        return "coin", texto
+    if "netwin" in compacto or "netwim" in compacto or "netvin" in compacto:
+        return "win", texto
+    if "total" in compacto and any(palabra in compacto for palabra in ("corte", "document", "hasta")):
+        return "ingresos", texto
+    raise ValueError("No se identificó si corresponde a Jugado, Netwin o Total de Boletería")
+
+
 def extraer_ultimo_numero(archivo, tipo):
     imagen = Image.open(archivo)
     candidatos, textos = [], []
@@ -253,30 +272,42 @@ ppto = presupuesto_win(fecha)
 st.metric("PPTO Win TGM del día", pesos(ppto))
 
 with st.expander("📷 Leer capturas o fotos", expanded=True):
-    st.caption("Sube cada imagen en su lugar. Podrás revisar y corregir los valores detectados.")
-    u1, u2, u3 = st.columns(3)
-    captura_coin = u1.file_uploader("Coin In · Jugado", type=["png", "jpg", "jpeg"], key="ocr_coin")
-    captura_win = u2.file_uploader("Win · Netwin", type=["png", "jpg", "jpeg"], key="ocr_win")
-    captura_ingresos = u3.file_uploader("Ingresos · Total", type=["png", "jpg", "jpeg"], key="ocr_ingresos")
+    st.caption("Selecciona o arrastra juntas las imágenes de Jugado, Netwin y Boletería.")
+    capturas = st.file_uploader(
+        "Capturas o fotos",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="ocr_capturas",
+    )
     if st.button("Leer capturas", use_container_width=True):
-        detectados, detalles, errores = {}, {}, []
-        for tipo, archivo in [("coin", captura_coin), ("win", captura_win), ("ingresos", captura_ingresos)]:
-            if archivo is None:
-                continue
+        detectados, detalles, errores, asignaciones = {}, {}, [], []
+        for archivo in capturas:
             try:
+                tipo, texto_clasificacion = clasificar_captura(archivo)
+                archivo.seek(0)
                 detectados[tipo], detalles[tipo] = extraer_ultimo_numero(archivo, tipo)
+                detalles[f"clasificación {archivo.name}"] = texto_clasificacion
+                nombre_tipo = {"coin": "Coin In", "win": "Win", "ingresos": "Ingresos"}[tipo]
+                asignaciones.append(f"{archivo.name} → {nombre_tipo}")
             except Exception as error:
-                errores.append(f"{tipo}: {error}")
+                errores.append(f"{archivo.name}: {error}")
         if "coin" in detectados:
             st.session_state[f"parcial_coin_{fecha}"] = {"value": pesos(detectados["coin"])}
         if "win" in detectados:
             st.session_state[f"parcial_win_{fecha}"] = {"value": pesos(detectados["win"])}
         if "ingresos" in detectados:
             st.session_state[f"parcial_ingresos_{fecha}"] = str(max(0, detectados["ingresos"]))
-        st.session_state["ocr_resultado"] = (detectados, errores, detalles)
+        st.session_state["ocr_resultado"] = (detectados, errores, detalles, asignaciones)
         st.rerun()
     if "ocr_resultado" in st.session_state:
-        detectados, errores, detalles = st.session_state["ocr_resultado"]
+        resultado_guardado = st.session_state["ocr_resultado"]
+        if len(resultado_guardado) == 3:
+            detectados, errores, detalles = resultado_guardado
+            asignaciones = []
+        else:
+            detectados, errores, detalles, asignaciones = resultado_guardado
+        if asignaciones:
+            st.info("Clasificación · " + " | ".join(asignaciones))
         if detectados:
             partes = []
             if "coin" in detectados: partes.append(f"Coin In: {pesos(detectados['coin'])}")
