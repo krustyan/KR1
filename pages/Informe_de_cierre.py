@@ -1,9 +1,9 @@
 import base64
-import html
 import io
 import os
 import textwrap
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -15,7 +15,7 @@ SHEET_NAME = "bases"
 
 
 def jornada_actual():
-    ahora = datetime.now()
+    ahora = datetime.now(ZoneInfo("America/Santiago"))
     return (ahora - timedelta(days=1)).date() if ahora.hour < 8 else ahora.date()
 
 
