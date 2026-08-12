@@ -110,6 +110,7 @@ def campo_entero(etiqueta, clave):
 
 def recortes_ocr(imagen, tipo):
     imagen = ImageOps.exif_transpose(imagen).convert("RGB")
+    imagen.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
     ancho, alto = imagen.size
     if tipo == "coin":
         limites = [(0, .25, .68, 1), (0, .58, .68, 1)]
@@ -119,8 +120,9 @@ def recortes_ocr(imagen, tipo):
         limites = [(.65, .25, 1, 1), (.65, .52, 1, 1)]
     for x1, y1, x2, y2 in limites:
         recorte = imagen.crop((int(ancho*x1), int(alto*y1), int(ancho*x2), int(alto*y2)))
-        escala = max(2, min(4, 1200 // max(1, recorte.width)))
-        recorte = recorte.resize((recorte.width*escala, recorte.height*escala))
+        if recorte.width < 700:
+            escala = min(3, max(1, 1000 // max(1, recorte.width)))
+            recorte = recorte.resize((recorte.width*escala, recorte.height*escala))
         gris = ImageOps.autocontrast(recorte.convert("L"))
         yield gris.point(lambda p: 255 if p > 165 else 0)
 
@@ -139,8 +141,10 @@ def convertir_numero(bruto):
 
 def clasificar_captura(archivo):
     imagen = ImageOps.exif_transpose(Image.open(archivo)).convert("RGB")
-    escala = max(1, min(2, 1000 // max(1, imagen.width)))
-    imagen = imagen.resize((imagen.width*escala, imagen.height*escala))
+    imagen.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
+    if imagen.width < 700:
+        escala = min(2, max(1, 900 // max(1, imagen.width)))
+        imagen = imagen.resize((imagen.width*escala, imagen.height*escala))
     gris = ImageOps.autocontrast(imagen.convert("L"))
     texto = pytesseract.image_to_string(gris, config="--psm 11", timeout=8)
     normalizado = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
@@ -287,6 +291,8 @@ with st.expander("📷 Leer capturas o fotos", expanded=True):
             for indice, archivo in enumerate(capturas):
                 progreso.progress(indice / len(capturas), text=f"Leyendo {archivo.name}…")
                 try:
+                    if archivo.size > 12 * 1024 * 1024:
+                        raise ValueError("la imagen supera el máximo de 12 MB")
                     tipo, texto_clasificacion = clasificar_captura(archivo)
                     archivo.seek(0)
                     detectados[tipo], detalles[tipo] = extraer_ultimo_numero(archivo, tipo)
