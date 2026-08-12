@@ -6,11 +6,16 @@ consulta = st.Page(
     icon="📊",
     default=True,
 )
+parcial = st.Page(
+    "app_pages/informe_parcial.py",
+    title="INFORME PARCIAL",
+    icon="⏱️",
+)
 informe = st.Page(
     "pages/Informe_de_cierre.py",
     title="INFORME DE CIERRE",
     icon="📝",
 )
 
-pagina = st.navigation([consulta, informe])
+pagina = st.navigation([consulta, parcial, informe])
 pagina.run()
