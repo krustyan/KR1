@@ -20,6 +20,10 @@ def jornada_actual():
 
 
 def entero(valor):
+    if isinstance(valor, str):
+        negativo = valor.strip().startswith("-")
+        digitos = "".join(c for c in valor if c.isdigit())
+        return (-1 if negativo else 1) * int(digitos or 0)
     try:
         return int(float(valor))
     except (TypeError, ValueError):
@@ -28,6 +32,23 @@ def entero(valor):
 
 def pesos(valor):
     return f"${entero(valor):,}".replace(",", ".")
+
+
+def campo_monto(etiqueta, valor, clave, deshabilitado=False):
+    if clave not in st.session_state:
+        st.session_state[clave] = pesos(valor)
+
+    def normalizar():
+        st.session_state[clave] = pesos(st.session_state[clave])
+
+    texto = st.text_input(
+        etiqueta,
+        key=clave,
+        disabled=deshabilitado,
+        on_change=normalizar if not deshabilitado else None,
+        help="Escribe el monto completo; al salir del campo se agregarán los puntos de miles.",
+    )
+    return entero(texto)
 
 
 def cargar_presupuestos(fecha):
@@ -63,15 +84,15 @@ def fuente(tamano, negrita=False):
 
 
 def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots, ingresos):
-    ancho, margen = 1200, 34
+    ancho, margen = 960, 28
     filas_novedades = []
     for area, texto in novedades.items():
-        lineas = textwrap.wrap(texto.strip() or "Sin novedades", width=88) or ["Sin novedades"]
+        lineas = textwrap.wrap(texto.strip() or "Sin novedades", width=66) or ["Sin novedades"]
         filas_novedades.append((area, lineas))
     alto = 610 + sum(max(56, 26 * len(lineas) + 24) for _, lineas in filas_novedades) + 60 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
-    f12, f14, f16, f20, f28 = fuente(18), fuente(20), fuente(22, True), fuente(26, True), fuente(36, True)
+    f12, f14, f16, f20, f28 = fuente(20), fuente(22), fuente(24, True), fuente(28, True), fuente(38, True)
     azul, tinta, borde = "#1787a8", "#172033", "#aab4c3"
     y = 30
     d.rounded_rectangle((margen, y, ancho-margen, y+82), 18, fill="#10324b")
@@ -88,8 +109,8 @@ def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots
         y += 50
 
     titulo("RESULTADOS")
-    encabezados = ["Ãrea / Indicador", "Presupuesto", "Resultado", "Cumplimiento"]
-    xs = [margen, 360, 620, 890, ancho-margen]
+    encabezados = ["Área / Indicador", "Presupuesto", "Resultado", "Cumplimiento"]
+    xs = [margen, 280, 500, 720, ancho-margen]
     for i, texto in enumerate(encabezados):
         d.rectangle((xs[i], y, xs[i+1], y+42), fill="#dcebf2", outline=borde)
         d.text((xs[i]+10, y+10), texto, font=f14, fill=tinta)
@@ -118,12 +139,12 @@ def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots
         if not (monto or detalle.strip()):
             continue
         d.rectangle((margen, y, ancho-margen, y+52), fill="#fff7df", outline=borde)
-        d.text((margen+12, y+13), f"TGM Â· {pesos(monto)} Â· {tipo} Â· {detalle.strip()}", font=f14, fill=tinta)
+        d.text((margen+12, y+13), f"TGM · {pesos(monto)} · {tipo} · {detalle.strip()}", font=f14, fill=tinta)
         y += 52
     y += 12
 
     titulo("INGRESOS")
-    etiquetas = [("TOTAL", ingresos[0]), ("CORTESÃAS", ingresos[1]), ("VENTA", ingresos[2])]
+    etiquetas = [("TOTAL", ingresos[0]), ("CORTESÍAS", ingresos[1]), ("VENTA", ingresos[2])]
     for etiqueta, valor in etiquetas:
         d.rectangle((margen, y, margen+270, y+46), fill="#eef3f7", outline=borde)
         d.rectangle((margen+270, y, ancho-margen, y+46), fill="white", outline=borde)
@@ -136,10 +157,10 @@ def crear_imagen(fecha, resultados, po, pagos, sobre_millon, novedades, jackpots
     return salida.getvalue()
 
 
-st.set_page_config(page_title="Informe de cierre", page_icon="ðŸ“", layout="centered")
-st.markdown("<style>.block-container{max-width:850px;padding-top:1rem} div[data-testid='stNumberInput'] input{text-align:right}</style>", unsafe_allow_html=True)
-st.page_link("consulta_montos_streamlit.py", label="â† Volver a consulta de presupuesto")
-st.title("ðŸ“ Informe de cierre")
+st.set_page_config(page_title="Informe de cierre", page_icon="📝", layout="centered")
+st.markdown("<style>.block-container{max-width:850px;padding-top:1rem} div[data-testid='stTextInput'] input{text-align:right;font-variant-numeric:tabular-nums} div[data-testid='stNumberInput'] input{text-align:right}</style>", unsafe_allow_html=True)
+st.page_link("consulta_montos_streamlit.py", label="← Volver a consulta de presupuesto")
+st.title("📝 Informe de cierre")
 st.caption("Completa los datos y genera una imagen lista para enviar.")
 
 fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
@@ -149,35 +170,38 @@ if not any(presupuestos.values()):
 
 st.subheader("Resultados")
 resultados = []
-for nombre in presupuestos:
+for indice, nombre in enumerate(presupuestos):
     c1, c2 = st.columns(2)
     with c1:
-        ppto = st.number_input(nombre, min_value=0, value=presupuestos[nombre], step=1000, key=f"p_{nombre}")
+        ppto = campo_monto(nombre, presupuestos[nombre], f"p_{fecha}_{indice}", deshabilitado=presupuestos[nombre] != 0)
     with c2:
-        real = st.number_input("Resultado", value=0, step=1000, key=f"r_{nombre}")
+        real = campo_monto("Resultado", 0, f"r_{fecha}_{indice}")
     resultados.append((nombre, ppto, real))
+win_tgm_real = resultados[2][2]
+coin_in_real = resultados[3][2]
+po = (1 - (win_tgm_real / coin_in_real)) * 100 if coin_in_real else 0.0
 c1, c2, c3 = st.columns(3)
-po = c1.number_input("PO (%)", value=0.0, step=0.1)
+c1.metric("PO calculado", f"{po:.2f}%".replace(".", ","), help="100 × (1 − Win TGM real ÷ Coin In real)")
 pagos = c2.text_input("Pagos totales", placeholder="Ej.: 8 x $4.258.905")
-sobre_millon = c3.number_input("Pagos sobre millÃ³n", min_value=0, value=0, step=1)
+sobre_millon = c3.number_input("Pagos sobre millón", min_value=0, value=0, step=1)
 
 st.subheader("Novedades")
-areas = ["MDJ", "EC / TGM", "TO", "SEGURIDAD", "MANTENCIÃ“N", "TIC", "BAR / COCINA"]
+areas = ["MDJ", "EC / TGM", "TO", "SEGURIDAD", "MANTENCIÓN", "TIC", "BAR / COCINA"]
 novedades = {area: st.text_area(area, value="Sin novedades", height=70, key=f"n_{area}") for area in areas}
 
 with st.expander("Jackpots TGM (opcional)"):
     jackpots = []
     for i in range(3):
         c1, c2, c3 = st.columns([1, 1, 2])
-        monto = c1.number_input("Monto", min_value=0, value=0, step=1000, key=f"jm_{i}")
+        monto = campo_monto("Monto", 0, f"jm_{fecha}_{i}")
         tipo = c2.text_input("Tipo", value="Jackpot", key=f"jt_{i}")
-        detalle = c3.text_input("Cliente / CategorÃ­a / TGM", key=f"jd_{i}")
+        detalle = c3.text_input("Cliente / Categoría / TGM", key=f"jd_{i}")
         jackpots.append((monto, tipo, detalle))
 
 st.subheader("Ingresos")
 c1, c2, c3 = st.columns(3)
 total = c1.number_input("Total", min_value=0, value=0, step=1)
-cortesias = c2.number_input("CortesÃ­as", min_value=0, value=0, step=1)
+cortesias = c2.number_input("Cortesías", min_value=0, value=0, step=1)
 venta = c3.number_input("Venta", min_value=0, value=0, step=1)
 
 if st.button("Generar informe", type="primary", use_container_width=True):
@@ -188,10 +212,10 @@ if "informe_png" in st.session_state:
     st.divider()
     st.subheader("Vista previa")
     st.image(png, use_container_width=True)
-    st.download_button("â¬‡ï¸ Descargar PNG", png, file_name=f"informe_cierre_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
+    st.download_button("Descargar PNG", png, file_name=f"informe_cierre_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
     b64 = base64.b64encode(png).decode("ascii")
     components.html(f"""
-    <button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif;cursor:pointer">ðŸ“‹ Copiar imagen</button>
+    <button id="copy" style="width:100%;padding:12px;border:0;border-radius:8px;background:#1787a8;color:white;font:600 16px sans-serif;cursor:pointer">Copiar imagen</button>
     <div id="msg" style="font:14px sans-serif;margin-top:8px;color:#334155"></div>
     <script>
     document.getElementById('copy').onclick = async () => {{
@@ -200,7 +224,7 @@ if "informe_png" in st.session_state:
         const blob = await (await fetch('data:image/png;base64,{b64}')).blob();
         await navigator.clipboard.write([new ClipboardItem({{'image/png': blob}})]);
         msg.textContent = 'Imagen copiada. Ya puedes pegarla en WhatsApp o correo.';
-      }} catch (e) {{ msg.textContent = 'El navegador bloqueÃ³ la copia. Usa Descargar PNG.'; }}
+      }} catch (e) {{ msg.textContent = 'El navegador bloqueó la copia. Usa Descargar PNG.'; }}
     }};
     </script>""", height=72)
 
