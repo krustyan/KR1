@@ -53,6 +53,17 @@ def campo_monto(etiqueta, valor, clave, deshabilitado=False):
     return entero(texto)
 
 
+def campo_entero(etiqueta, valor, clave):
+    if clave not in st.session_state:
+        st.session_state[clave] = str(valor)
+
+    def normalizar():
+        st.session_state[clave] = str(max(0, entero(st.session_state[clave])))
+
+    texto = st.text_input(etiqueta, key=clave, on_change=normalizar)
+    return max(0, entero(texto))
+
+
 def cargar_presupuestos(fecha):
     valores = {"MDJ Win Ppto": 0, "MDJ Drop Ppto": 0, "TGM Win Ppto": 0, "TGM CI Ppto": 0}
     if not os.path.exists(FILE_PATH):
@@ -235,9 +246,12 @@ novedades = {area: st.text_area(area, value="Sin novedades", height=70, key=f"n_
 
 st.subheader("Ingresos")
 c1, c2, c3 = st.columns(3)
-total = c1.number_input("Total", min_value=0, value=0, step=1)
-cortesias = c2.number_input("Cortesías", min_value=0, value=0, step=1)
-venta = c3.number_input("Venta", min_value=0, value=0, step=1)
+with c1:
+    total = campo_entero("Total", 0, f"ingreso_total_{fecha}")
+with c2:
+    cortesias = campo_entero("Cortesías", 0, f"ingreso_cortesias_{fecha}")
+venta = max(0, total - cortesias)
+c3.metric("Venta", venta, help="Se calcula automáticamente: Total − Cortesías")
 
 if st.button("Generar informe", type="primary", use_container_width=True):
     st.session_state["informe_png"] = crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon, novedades, jackpots, (total, cortesias, venta))
