@@ -416,10 +416,10 @@ def revisar_informe():
             problemas.append(f"Falta seleccionar la categoría en Jackpot {numero}.")
     if sobre_millon > 0 and not campo_completado(f"pagos_monto_{fecha}"):
         problemas.append("Falta completar el monto total de premios.")
-    elif suma_jackpots > monto_pagos:
+    elif monto_pagos < suma_jackpots:
         problemas.append(
-            f"El monto total de premios ({pesos(monto_pagos)}) no puede ser menor "
-            f"que la suma de jackpots sobre $1 millón ({pesos(suma_jackpots)})."
+            f"El monto total de premios ({pesos(monto_pagos)}) debe ser igual o superior "
+            f"a la suma de jackpots sobre $1 millón ({pesos(suma_jackpots)})."
         )
     return problemas
 
