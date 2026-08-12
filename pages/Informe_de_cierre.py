@@ -439,7 +439,7 @@ if st.button("Generar informe", type="primary", use_container_width=True):
 if "informe_png" in st.session_state:
     png = st.session_state["informe_png"]
     st.divider()
-    with st.expander("Vista previa y descarga", expanded=False):
+    with st.expander("Vista previa y descarga", expanded=True):
         st.image(png, use_container_width=True)
         st.download_button("Descargar PNG", png, file_name=f"informe_cierre_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
         b64 = base64.b64encode(png).decode("ascii")
