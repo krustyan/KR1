@@ -33,8 +33,10 @@ MONEDA_COMPONENT = st.components.v2.component(
       label.textContent = data.label;
       input.disabled = Boolean(data.disabled);
       const format = (raw) => {
+        const negative = String(raw ?? '').trim().startsWith('-');
         const digits = String(raw ?? '').replace(/\\D/g, '');
-        return digits ? '$' + Number(digits).toLocaleString('es-CL') : '';
+        if (!digits) return negative ? '-' : '';
+        return (negative ? '-$' : '$') + Number(digits).toLocaleString('es-CL');
       };
       if (document.activeElement !== input && input.value !== data.value) input.value = data.value ?? '';
       input.onfocus = () => { if (!input.disabled) input.select(); };
@@ -42,11 +44,19 @@ MONEDA_COMPONENT = st.components.v2.component(
         input.value = format(input.value);
         input.setSelectionRange(input.value.length, input.value.length);
       };
+      input.onkeydown = (event) => {
+        if (event.key === '-' && !input.value.startsWith('-')) {
+          event.preventDefault();
+          input.value = input.value ? '-' + input.value.replace('-', '') : '-';
+          input.setSelectionRange(input.value.length, input.value.length);
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+          input.blur();
+        }
+      };
       const commit = () => setStateValue('value', input.value);
       input.onblur = commit;
-      input.onkeydown = (event) => {
-        if (event.key === 'Enter') { event.preventDefault(); commit(); input.blur(); }
-      };
     }
     ''',
 )
@@ -69,7 +79,9 @@ def entero(valor):
 
 
 def pesos(valor):
-    return f"${entero(valor):,}".replace(",", ".")
+    numero = entero(valor)
+    signo = "-" if numero < 0 else ""
+    return f"{signo}${abs(numero):,}".replace(",", ".")
 
 
 def campo_monto(etiqueta, valor, clave, deshabilitado=False):
