@@ -120,88 +120,88 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             areas_sin_novedad.append(area)
         else:
             filas_novedades.append((area, textwrap.wrap(limpio, width=58) or [limpio]))
-    alto = 560 + sum(max(36, 21 * len(lineas) + 13) for _, lineas in filas_novedades) + 38 * len(jackpots)
+    alto = 520 + sum(max(32, 18 * len(lineas) + 12) for _, lineas in filas_novedades) + 34 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
-    f12, f14, f16, f20, f28 = fuente(18), fuente(20), fuente(22, True), fuente(25, True), fuente(46, True)
+    f12, f14, f16, f20, f28 = fuente(15), fuente(17), fuente(19, True), fuente(22, True), fuente(36, True)
     azul, tinta, borde = "#1787a8", "#172033", "#aab4c3"
     y = 20
-    d.rounded_rectangle((margen, y, ancho-margen, y+62), 14, fill="#10324b")
+    d.rounded_rectangle((margen, y, ancho-margen, y+54), 14, fill="#10324b")
     encabezado = f"INFORME DE CIERRE | {fecha:%d-%m-%Y}"
-    tamano_titulo = 46
+    tamano_titulo = 36
     fuente_titulo = f28
-    while d.textbbox((0, 0), encabezado, font=fuente_titulo)[2] > ancho - (2 * margen) - 36 and tamano_titulo > 28:
+    while d.textbbox((0, 0), encabezado, font=fuente_titulo)[2] > ancho - (2 * margen) - 36 and tamano_titulo > 24:
         tamano_titulo -= 1
         fuente_titulo = fuente(tamano_titulo, True)
     caja = d.textbbox((0, 0), encabezado, font=fuente_titulo)
     x_titulo = (ancho - (caja[2] - caja[0])) // 2
     d.text((x_titulo, y+8), encabezado, font=fuente_titulo, fill="white")
-    y += 74
+    y += 66
 
     def titulo(texto):
         nonlocal y
-        d.rounded_rectangle((margen, y, ancho-margen, y+30), 7, fill=azul)
+        d.rounded_rectangle((margen, y, ancho-margen, y+27), 7, fill=azul)
         d.text((margen+14, y+5), texto, font=f16, fill="white")
-        y += 36
+        y += 33
 
     titulo("RESULTADOS")
     encabezados = ["Área / Indicador", "Presupuesto", "Resultado", "Cumplimiento"]
     xs = [margen, 245, 455, 665, ancho-margen]
     for i, texto in enumerate(encabezados):
-        d.rectangle((xs[i], y, xs[i+1], y+30), fill="#dcebf2", outline=borde)
+        d.rectangle((xs[i], y, xs[i+1], y+27), fill="#dcebf2", outline=borde)
         d.text((xs[i]+8, y+7), texto, font=f12, fill=tinta)
-    y += 30
+    y += 27
     for nombre, ppto, real in resultados:
         cumplimiento = (real / ppto * 100) if ppto else 0
         fondo = "#dff4e5" if cumplimiento >= 100 else "#ffe0e0"
         textos = [nombre, pesos(ppto), pesos(real), f"{cumplimiento:.1f}%".replace(".", ",")]
         for i, texto in enumerate(textos):
-            d.rectangle((xs[i], y, xs[i+1], y+34), fill=fondo if i >= 2 else "white", outline=borde)
+            d.rectangle((xs[i], y, xs[i+1], y+31), fill=fondo if i >= 2 else "white", outline=borde)
             d.text((xs[i]+8, y+8), texto, font=f12, fill="#16733b" if i >= 2 and cumplimiento >= 100 else ("#b42318" if i >= 2 else tinta))
-        y += 34
-    d.rectangle((margen, y, ancho-margen, y+34), fill="white", outline=borde)
+        y += 31
+    d.rectangle((margen, y, ancho-margen, y+31), fill="white", outline=borde)
     resumen = f"PO Jornada: {po:.2f}%  |  Pagos: {cantidad_pagos}  |  Monto: {pesos(monto_pagos)}  |  Sobre $1.000.000: {sobre_millon}"
     resumen = resumen.replace(".", ",", 1)
     fuente_resumen = f12
-    tamano_resumen = 18
-    while d.textbbox((0, 0), resumen, font=fuente_resumen)[2] > ancho - (2 * margen) - 20 and tamano_resumen > 14:
+    tamano_resumen = 15
+    while d.textbbox((0, 0), resumen, font=fuente_resumen)[2] > ancho - (2 * margen) - 20 and tamano_resumen > 12:
         tamano_resumen -= 1
         fuente_resumen = fuente(tamano_resumen)
     d.text((margen+10, y+7), resumen, font=fuente_resumen, fill=tinta)
-    y += 42
+    y += 39
 
     if jackpots:
         titulo("JACKPOTS TGM")
         for monto, maquina, salon, categoria, cliente in jackpots:
-            d.rectangle((margen, y, ancho-margen, y+34), fill="#fff7df", outline=borde)
+            d.rectangle((margen, y, ancho-margen, y+31), fill="#fff7df", outline=borde)
             cliente_txt = cliente.strip() or "Cliente sin identificar"
             detalle = f"{pesos(monto)} | {cliente_txt} | {categoria} | Máquina {maquina} | {salon}"
-            tamano_detalle = 18
+            tamano_detalle = 15
             fuente_detalle = fuente(tamano_detalle, True)
             disponible = ancho - (2 * margen) - 20
-            while d.textbbox((0, 0), detalle, font=fuente_detalle)[2] > disponible and tamano_detalle > 14:
+            while d.textbbox((0, 0), detalle, font=fuente_detalle)[2] > disponible and tamano_detalle > 12:
                 tamano_detalle -= 1
                 fuente_detalle = fuente(tamano_detalle, True)
             d.text((margen+10, y+8), detalle, font=fuente_detalle, fill=tinta)
-            y += 34
+            y += 31
         y += 8
 
     titulo("NOVEDADES")
     for area, lineas in filas_novedades:
-        h = max(38, 21 * len(lineas) + 14)
+        h = max(34, 18 * len(lineas) + 13)
         d.rectangle((margen, y, margen+240, y+h), fill="#eef3f7", outline=borde)
-        d.text((margen+10, y+7), area, font=fuente(16, True), fill=tinta)
+        d.text((margen+10, y+6), area, font=fuente(13, True), fill=tinta)
         d.rectangle((margen+240, y, ancho-margen, y+h), fill="white", outline=borde)
         d.multiline_text((margen+252, y+8), "\n".join(lineas), font=f12, fill=tinta, spacing=4)
         y += h
     if areas_sin_novedad:
         etiqueta = "TODAS LAS ÁREAS" if not filas_novedades else "SIN NOVEDADES"
         detalle = "Sin novedades" if not filas_novedades else " · ".join(areas_sin_novedad)
-        d.rectangle((margen, y, margen+240, y+36), fill="#eef3f7", outline=borde)
-        d.rectangle((margen+240, y, ancho-margen, y+36), fill="white", outline=borde)
-        d.text((margen+10, y+6), etiqueta, font=fuente(16, True), fill=tinta)
+        d.rectangle((margen, y, margen+240, y+33), fill="#eef3f7", outline=borde)
+        d.rectangle((margen+240, y, ancho-margen, y+33), fill="white", outline=borde)
+        d.text((margen+10, y+5), etiqueta, font=fuente(13, True), fill=tinta)
         d.text((margen+252, y+7), detalle, font=f12, fill=tinta)
-        y += 36
+        y += 33
     y += 8
 
     titulo("INGRESOS")
@@ -210,10 +210,10 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
     for i, (etiqueta, valor) in enumerate(etiquetas):
         x1 = margen + i * ancho_col
         x2 = ancho - margen if i == 2 else x1 + ancho_col
-        d.rectangle((x1, y, x2, y+44), fill="white", outline=borde)
+        d.rectangle((x1, y, x2, y+40), fill="white", outline=borde)
         d.text((x1+10, y+5), etiqueta, font=f12, fill="#526071")
-        d.text((x1+10, y+21), str(valor), font=f16, fill=tinta)
-    y += 54
+        d.text((x1+10, y+19), str(valor), font=f16, fill=tinta)
+    y += 50
     salida = io.BytesIO()
     img.crop((0, 0, ancho, min(alto, y))).save(salida, format="PNG", optimize=True)
     return salida.getvalue()
