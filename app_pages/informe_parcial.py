@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Versión OCR optimizada para fotografías de alta resolución.
 
 MONEDA_COMPONENT = st.components.v2.component(
     "campo_moneda_parcial_clp",
