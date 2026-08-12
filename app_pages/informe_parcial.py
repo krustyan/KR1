@@ -249,7 +249,7 @@ if st.button("Generar informe parcial", type="primary", use_container_width=True
 
 if "parcial_png" in st.session_state:
     png = st.session_state["parcial_png"]
-    with st.expander("Vista previa y descarga", expanded=False):
+    with st.expander("Vista previa y descarga", expanded=True):
         st.image(png, use_container_width=True)
         st.download_button("Descargar PNG", png, file_name=f"informe_parcial_{fecha:%d-%m-%Y}.png", mime="image/png", use_container_width=True)
         b64 = base64.b64encode(png).decode("ascii")
