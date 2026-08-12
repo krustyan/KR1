@@ -272,6 +272,26 @@ st.page_link("app_pages/consulta_ppto.py", label="← Volver a CONSULTA PPTO")
 st.title("📝 Informe de cierre")
 st.caption("Completa los datos y genera una imagen lista para enviar.")
 
+BORRADOR_KEY = "borrador_informe_cierre"
+
+def limpiar_borrador():
+    prefijos = (
+        "r_", "jm_", "maq_", "cat_", "cliente_", "cantidad_premios_",
+        "pagos_monto_", "sobre_millon_", "ingreso_total_", "ingreso_cortesias_", "n_",
+    )
+    for clave in list(st.session_state):
+        if clave == BORRADOR_KEY or clave == "informe_png" or clave.startswith(prefijos):
+            del st.session_state[clave]
+
+if st.button("Limpiar informe", use_container_width=True):
+    limpiar_borrador()
+    st.rerun()
+
+borrador = st.session_state.get(BORRADOR_KEY, {})
+for clave, valor in borrador.items():
+    if clave not in st.session_state:
+        st.session_state[clave] = valor
+
 fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
 presupuestos = cargar_presupuestos(fecha)
 if not any(presupuestos.values()):
@@ -334,6 +354,13 @@ with c2:
     cortesias = campo_entero("Cortesías", 0, f"ingreso_cortesias_{fecha}")
 venta = max(0, total - cortesias)
 c3.metric("Venta", venta, help="Se calcula automáticamente: Total − Cortesías")
+
+# Guardado automático para conservar el trabajo al cambiar de página.
+claves_borrador = [
+    clave for clave in st.session_state
+    if clave.startswith(("r_", "jm_", "maq_", "cat_", "cliente_", "cantidad_premios_", "pagos_monto_", "sobre_millon_", "ingreso_total_", "ingreso_cortesias_", "n_"))
+]
+st.session_state[BORRADOR_KEY] = {clave: st.session_state[clave] for clave in claves_borrador}
 
 if st.button("Generar informe", type="primary", use_container_width=True):
     st.session_state["informe_png"] = crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millon, novedades, jackpots, (total, cortesias, venta))
