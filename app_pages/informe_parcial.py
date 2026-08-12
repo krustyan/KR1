@@ -29,8 +29,10 @@ MONEDA_COMPONENT = st.components.v2.component(
       const input = parentElement.querySelector('.clp-input');
       label.textContent = data.label;
       const format = (raw) => {
+        const negative = String(raw || '').trim().startsWith('-');
         const digits = String(raw || '').replace(/[^0-9]/g, '');
-        return digits ? '$' + Number(digits).toLocaleString('es-CL') : '';
+        if (!digits) return negative ? '-' : '';
+        return (negative ? '-$' : '$') + Number(digits).toLocaleString('es-CL');
       };
       if (document.activeElement !== input && input.value !== data.value) {
         input.value = data.value || '';
@@ -43,7 +45,11 @@ MONEDA_COMPONENT = st.components.v2.component(
       const commit = () => setStateValue('value', input.value);
       input.onblur = commit;
       input.onkeydown = (event) => {
-        if (event.key === 'Enter') {
+        if (event.key === '-' && !input.value.startsWith('-')) {
+          event.preventDefault();
+          input.value = input.value ? '-' + input.value.replace('-', '') : '-';
+          input.setSelectionRange(input.value.length, input.value.length);
+        } else if (event.key === 'Enter') {
           event.preventDefault();
           commit();
           input.blur();
@@ -61,7 +67,9 @@ def jornada_actual():
 
 def entero(valor):
     if isinstance(valor, str):
-        return int("".join(c for c in valor if c.isdigit()) or 0)
+        negativo = valor.strip().startswith("-")
+        numero = int("".join(c for c in valor if c.isdigit()) or 0)
+        return -numero if negativo else numero
     try:
         return int(valor)
     except (TypeError, ValueError):
@@ -69,7 +77,9 @@ def entero(valor):
 
 
 def pesos(valor):
-    return f"${entero(valor):,}".replace(",", ".")
+    numero = entero(valor)
+    signo = "-" if numero < 0 else ""
+    return f"{signo}${abs(numero):,}".replace(",", ".")
 
 
 def campo_monto(etiqueta, clave):
