@@ -10,7 +10,7 @@ import pandas as pd
 import pytesseract
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
@@ -107,34 +107,26 @@ def campo_entero(etiqueta, clave):
     return entero(st.text_input(etiqueta, key=clave, on_change=normalizar, placeholder="0"))
 
 
-def preparar_ocr(imagen, tipo):
-    imagen = imagen.convert("RGB")
+def recortes_ocr(imagen, tipo):
+    imagen = ImageOps.exif_transpose(imagen).convert("RGB")
     ancho, alto = imagen.size
     if tipo == "coin":
-        imagen = imagen.crop((0, int(alto * .40), int(ancho * .58), alto))
+        limites = [(0, .22, .68, 1), (0, .52, .68, 1), (0, 0, 1, 1)]
     elif tipo == "win":
-        imagen = imagen.crop((int(ancho * .18), int(alto * .38), int(ancho * .82), alto))
+        limites = [(.28, .22, .89, 1), (.28, .52, .89, 1), (0, 0, 1, 1)]
     else:
-        imagen = imagen.crop((int(ancho * .42), int(alto * .35), ancho, alto))
-    escala = max(2, min(4, 1200 // max(1, imagen.width)))
-    imagen = imagen.resize((imagen.width * escala, imagen.height * escala))
-    gris = imagen.convert("L")
-    return gris.point(lambda p: 255 if p > 165 else 0)
+        limites = [(.70, .20, 1, 1), (.70, .50, 1, 1), (0, 0, 1, 1)]
+    for x1, y1, x2, y2 in limites:
+        recorte = imagen.crop((int(ancho*x1), int(alto*y1), int(ancho*x2), int(alto*y2)))
+        escala = max(3, min(6, 1800 // max(1, recorte.width)))
+        recorte = recorte.resize((recorte.width*escala, recorte.height*escala))
+        gris = ImageOps.autocontrast(recorte.convert("L"))
+        yield gris
+        yield gris.point(lambda p: 255 if p > 145 else 0)
+        yield gris.point(lambda p: 255 if p > 180 else 0)
 
 
-def extraer_ultimo_numero(archivo, tipo):
-    imagen = Image.open(archivo)
-    preparada = preparar_ocr(imagen, tipo)
-    texto = pytesseract.image_to_string(
-        preparada,
-        config="--psm 6 -c tessedit_char_whitelist=0123456789$.,-",
-    )
-    texto = texto.replace("—", "-").replace(" ", "")
-    candidatos = re.findall(r"-?\$?-?\d[\d.,-]*", texto)
-    candidatos = [c.rstrip(".,-") for c in candidatos if any(ch.isdigit() for ch in c)]
-    if not candidatos:
-        raise ValueError("No se detectó un número")
-    bruto = candidatos[-1]
+def convertir_numero(bruto):
     negativo = "-" in bruto
     limpio = bruto.replace("$", "").replace("-", "").replace(".", "")
     if "," in limpio:
@@ -143,7 +135,44 @@ def extraer_ultimo_numero(archivo, tipo):
     else:
         numero = Decimal(limpio.replace(",", "") or "0")
     numero = int(numero.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return (-numero if negativo else numero), texto
+    return -numero if negativo else numero
+
+
+def extraer_ultimo_numero(archivo, tipo):
+    imagen = Image.open(archivo)
+    candidatos, textos = [], []
+    for preparada in recortes_ocr(imagen, tipo):
+        for psm in (6, 11):
+            datos = pytesseract.image_to_data(
+                preparada,
+                config=f"--psm {psm} -c tessedit_char_whitelist=0123456789$.,-",
+                output_type=pytesseract.Output.DICT,
+            )
+            lineas = {}
+            for i, token in enumerate(datos["text"]):
+                token = token.strip()
+                if not token:
+                    continue
+                clave = (datos["block_num"][i], datos["par_num"][i], datos["line_num"][i])
+                linea = lineas.setdefault(clave, {"tokens": [], "top": datos["top"][i]})
+                linea["tokens"].append(token)
+                linea["top"] = max(linea["top"], datos["top"][i])
+            for linea in lineas.values():
+                texto = "".join(linea["tokens"]).replace("—", "-")
+                textos.append(texto)
+                for bruto in re.findall(r"-?\$?-?\d[\d.,-]*", texto):
+                    bruto = bruto.rstrip(".,-")
+                    digitos = sum(ch.isdigit() for ch in bruto)
+                    if digitos >= (2 if tipo == "ingresos" else 4):
+                        posicion = linea["top"] / max(1, preparada.height)
+                        candidatos.append((bruto, digitos, posicion))
+    if not candidatos:
+        raise ValueError("No se detectó un número")
+    if tipo == "ingresos":
+        bruto = max(candidatos, key=lambda x: (x[2], -abs(x[1]-3)))[0]
+    else:
+        bruto = max(candidatos, key=lambda x: (x[1], x[2]))[0]
+    return convertir_numero(bruto), "\n".join(dict.fromkeys(textos))
 
 
 @st.cache_data
