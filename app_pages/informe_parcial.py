@@ -1,10 +1,13 @@
 import base64
 import io
 import os
+import re
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytesseract
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageFont
@@ -104,6 +107,45 @@ def campo_entero(etiqueta, clave):
     return entero(st.text_input(etiqueta, key=clave, on_change=normalizar, placeholder="0"))
 
 
+def preparar_ocr(imagen, tipo):
+    imagen = imagen.convert("RGB")
+    ancho, alto = imagen.size
+    if tipo == "coin":
+        imagen = imagen.crop((0, int(alto * .40), int(ancho * .58), alto))
+    elif tipo == "win":
+        imagen = imagen.crop((int(ancho * .18), int(alto * .38), int(ancho * .82), alto))
+    else:
+        imagen = imagen.crop((int(ancho * .42), int(alto * .35), ancho, alto))
+    escala = max(2, min(4, 1200 // max(1, imagen.width)))
+    imagen = imagen.resize((imagen.width * escala, imagen.height * escala))
+    gris = imagen.convert("L")
+    return gris.point(lambda p: 255 if p > 165 else 0)
+
+
+def extraer_ultimo_numero(archivo, tipo):
+    imagen = Image.open(archivo)
+    preparada = preparar_ocr(imagen, tipo)
+    texto = pytesseract.image_to_string(
+        preparada,
+        config="--psm 6 -c tessedit_char_whitelist=0123456789$.,-",
+    )
+    texto = texto.replace("—", "-").replace(" ", "")
+    candidatos = re.findall(r"-?\$?-?\d[\d.,-]*", texto)
+    candidatos = [c.rstrip(".,-") for c in candidatos if any(ch.isdigit() for ch in c)]
+    if not candidatos:
+        raise ValueError("No se detectó un número")
+    bruto = candidatos[-1]
+    negativo = "-" in bruto
+    limpio = bruto.replace("$", "").replace("-", "").replace(".", "")
+    if "," in limpio:
+        parte_entera, decimales = limpio.rsplit(",", 1)
+        numero = Decimal(f"{parte_entera or '0'}.{decimales or '0'}")
+    else:
+        numero = Decimal(limpio.replace(",", "") or "0")
+    numero = int(numero.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return (-numero if negativo else numero), texto
+
+
 @st.cache_data
 def presupuesto_win(fecha):
     if not os.path.exists(FILE_PATH):
@@ -180,6 +222,42 @@ st.caption("Avance acumulado respecto del presupuesto total de la jornada.")
 fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
 ppto = presupuesto_win(fecha)
 st.metric("PPTO Win TGM del día", pesos(ppto))
+
+with st.expander("📷 Leer capturas o fotos", expanded=True):
+    st.caption("Sube cada imagen en su lugar. Podrás revisar y corregir los valores detectados.")
+    u1, u2, u3 = st.columns(3)
+    captura_coin = u1.file_uploader("Coin In · Jugado", type=["png", "jpg", "jpeg"], key="ocr_coin")
+    captura_win = u2.file_uploader("Win · Netwin", type=["png", "jpg", "jpeg"], key="ocr_win")
+    captura_ingresos = u3.file_uploader("Ingresos · Total", type=["png", "jpg", "jpeg"], key="ocr_ingresos")
+    if st.button("Leer capturas", use_container_width=True):
+        detectados, detalles, errores = {}, {}, []
+        for tipo, archivo in [("coin", captura_coin), ("win", captura_win), ("ingresos", captura_ingresos)]:
+            if archivo is None:
+                continue
+            try:
+                detectados[tipo], detalles[tipo] = extraer_ultimo_numero(archivo, tipo)
+            except Exception as error:
+                errores.append(f"{tipo}: {error}")
+        if "coin" in detectados:
+            st.session_state[f"parcial_coin_{fecha}"] = {"value": pesos(detectados["coin"])}
+        if "win" in detectados:
+            st.session_state[f"parcial_win_{fecha}"] = {"value": pesos(detectados["win"])}
+        if "ingresos" in detectados:
+            st.session_state[f"parcial_ingresos_{fecha}"] = str(max(0, detectados["ingresos"]))
+        st.session_state["ocr_resultado"] = (detectados, errores, detalles)
+        st.rerun()
+    if "ocr_resultado" in st.session_state:
+        detectados, errores, detalles = st.session_state["ocr_resultado"]
+        if detectados:
+            partes = []
+            if "coin" in detectados: partes.append(f"Coin In: {pesos(detectados['coin'])}")
+            if "win" in detectados: partes.append(f"Win: {pesos(detectados['win'])}")
+            if "ingresos" in detectados: partes.append(f"Ingresos: {detectados['ingresos']}")
+            st.success("Detectado · " + " | ".join(partes))
+        if errores:
+            st.warning("No se pudo leer: " + " | ".join(errores))
+        with st.expander("Ver texto reconocido"):
+            st.code("\n".join(f"{k}: {v}" for k, v in detalles.items()) or "Sin texto")
 
 c1, c2, c3 = st.columns([1, 1, .7])
 with c1:
