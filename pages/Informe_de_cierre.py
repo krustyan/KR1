@@ -14,6 +14,7 @@ FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
 MAQUINAS_PATH = "data/maquinas.tsv"
 CATEGORIAS = ["Silver", "Gold", "Platinum", "Diamond", "Seven Star"]
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def jornada_actual():
@@ -96,7 +97,7 @@ def cargar_maquinas():
 
 def fuente(tamano, negrita=False):
     nombres = [
-        "assets/Ubuntu-B.ttf" if negrita else "assets/Ubuntu-R.ttf",
+        os.path.join(BASE_DIR, "assets", "Ubuntu-B.ttf" if negrita else "Ubuntu-R.ttf"),
         "Ubuntu-B.ttf" if negrita else "Ubuntu-R.ttf",
         "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf" if negrita else "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
         "DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf",
@@ -122,14 +123,19 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
     alto = 670 + sum(max(44, 27 * len(lineas) + 16) for _, lineas in filas_novedades) + 46 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
-    f12, f14, f16, f20, f28 = fuente(22), fuente(24), fuente(26, True), fuente(29, True), fuente(50, True)
+    f12, f14, f16, f20, f28 = fuente(26), fuente(28), fuente(30, True), fuente(33, True), fuente(54, True)
     azul, tinta, borde = "#1787a8", "#172033", "#aab4c3"
     y = 20
     d.rounded_rectangle((margen, y, ancho-margen, y+76), 14, fill="#10324b")
-    d.text((margen+20, y+10), "INFORME DE CIERRE", font=f28, fill="white")
-    fecha_txt = fecha.strftime("%d-%m-%Y")
-    caja = d.textbbox((0, 0), fecha_txt, font=f20)
-    d.text((ancho-margen-20-(caja[2]-caja[0]), y+24), fecha_txt, font=f20, fill="#8fe3f7")
+    encabezado = f"INFORME DE CIERRE | {fecha:%d-%m-%Y}"
+    tamano_titulo = 54
+    fuente_titulo = f28
+    while d.textbbox((0, 0), encabezado, font=fuente_titulo)[2] > ancho - (2 * margen) - 36 and tamano_titulo > 36:
+        tamano_titulo -= 1
+        fuente_titulo = fuente(tamano_titulo, True)
+    caja = d.textbbox((0, 0), encabezado, font=fuente_titulo)
+    x_titulo = (ancho - (caja[2] - caja[0])) // 2
+    d.text((x_titulo, y+8), encabezado, font=fuente_titulo, fill="white")
     y += 88
 
     def titulo(texto):
@@ -155,7 +161,13 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
         y += 42
     d.rectangle((margen, y, ancho-margen, y+42), fill="white", outline=borde)
     resumen = f"PO Jornada: {po:.2f}%  |  Pagos: {cantidad_pagos}  |  Monto: {pesos(monto_pagos)}  |  Sobre $1.000.000: {sobre_millon}"
-    d.text((margen+10, y+7), resumen.replace(".", ",", 1), font=f12, fill=tinta)
+    resumen = resumen.replace(".", ",", 1)
+    fuente_resumen = f12
+    tamano_resumen = 26
+    while d.textbbox((0, 0), resumen, font=fuente_resumen)[2] > ancho - (2 * margen) - 20 and tamano_resumen > 18:
+        tamano_resumen -= 1
+        fuente_resumen = fuente(tamano_resumen)
+    d.text((margen+10, y+7), resumen, font=fuente_resumen, fill=tinta)
     y += 50
 
     if jackpots:
@@ -164,10 +176,10 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             d.rectangle((margen, y, ancho-margen, y+42), fill="#fff7df", outline=borde)
             cliente_txt = cliente.strip() or "Cliente sin identificar"
             detalle = f"{pesos(monto)} | {cliente_txt} | {categoria} | Máquina {maquina} | {salon}"
-            tamano_detalle = 22
+            tamano_detalle = 26
             fuente_detalle = fuente(tamano_detalle, True)
             disponible = ancho - (2 * margen) - 20
-            while d.textbbox((0, 0), detalle, font=fuente_detalle)[2] > disponible and tamano_detalle > 17:
+            while d.textbbox((0, 0), detalle, font=fuente_detalle)[2] > disponible and tamano_detalle > 19:
                 tamano_detalle -= 1
                 fuente_detalle = fuente(tamano_detalle, True)
             d.text((margen+10, y+8), detalle, font=fuente_detalle, fill=tinta)
@@ -177,18 +189,18 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
     titulo("NOVEDADES")
     for area, lineas in filas_novedades:
         h = max(48, 28 * len(lineas) + 18)
-        d.rectangle((margen, y, margen+170, y+h), fill="#eef3f7", outline=borde)
-        d.text((margen+10, y+10), area, font=f16, fill=tinta)
-        d.rectangle((margen+170, y, ancho-margen, y+h), fill="white", outline=borde)
-        d.multiline_text((margen+182, y+8), "\n".join(lineas), font=f12, fill=tinta, spacing=4)
+        d.rectangle((margen, y, margen+240, y+h), fill="#eef3f7", outline=borde)
+        d.text((margen+10, y+9), area, font=fuente(24, True), fill=tinta)
+        d.rectangle((margen+240, y, ancho-margen, y+h), fill="white", outline=borde)
+        d.multiline_text((margen+252, y+8), "\n".join(lineas), font=f12, fill=tinta, spacing=4)
         y += h
     if areas_sin_novedad:
         etiqueta = "TODAS LAS ÁREAS" if not filas_novedades else "SIN NOVEDADES"
         detalle = "Sin novedades" if not filas_novedades else " · ".join(areas_sin_novedad)
-        d.rectangle((margen, y, margen+170, y+44), fill="#eef3f7", outline=borde)
-        d.rectangle((margen+170, y, ancho-margen, y+44), fill="white", outline=borde)
-        d.text((margen+10, y+8), etiqueta, font=f16, fill=tinta)
-        d.text((margen+182, y+9), detalle, font=f12, fill=tinta)
+        d.rectangle((margen, y, margen+240, y+44), fill="#eef3f7", outline=borde)
+        d.rectangle((margen+240, y, ancho-margen, y+44), fill="white", outline=borde)
+        d.text((margen+10, y+8), etiqueta, font=fuente(24, True), fill=tinta)
+        d.text((margen+252, y+7), detalle, font=f12, fill=tinta)
         y += 44
     y += 8
 
