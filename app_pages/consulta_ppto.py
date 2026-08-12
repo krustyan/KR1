@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+import json
+import streamlit.components.v1 as components
 
 FILE_PATH = "CIERRE_PPTO_2025.xlsx"
 SHEET_NAME = "bases"
@@ -22,6 +24,62 @@ def to_int(v):
 
 def tarjeta(icono, titulo, monto, clase):
     return f'<div class="metric-card {clase}"><div class="metric-icon">{icono}</div><div class="metric-title">{titulo}</div><div class="metric-value">{formatear_monto(monto)}</div></div>'
+
+
+def boton_copiar_ppto(fecha_texto, valores):
+    datos = json.dumps(
+        {
+            "fecha": fecha_texto,
+            "items": [
+                {"titulo": "Win TGM", "valor": formatear_monto(valores[0]), "color": "#38d879", "fondo": "#092d23"},
+                {"titulo": "Coin In", "valor": formatear_monto(valores[1]), "color": "#4c9cff", "fondo": "#0c2038"},
+                {"titulo": "Win Mesas", "valor": formatear_monto(valores[2]), "color": "#b45eff", "fondo": "#281b3d"},
+                {"titulo": "Drop Mesas", "valor": formatear_monto(valores[3]), "color": "#f2be2d", "fondo": "#302a17"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    plantilla = """
+    <button id="copiar" style="width:100%;height:38px;border:0;border-radius:9px;background:#1787a8;color:white;font:600 14px sans-serif;cursor:pointer">📋 Copiar PPTO</button>
+    <div id="mensaje" style="font:12px sans-serif;color:#94a3b8;margin-top:3px;text-align:center"></div>
+    <script>
+    const datos = __DATOS__;
+    const boton = document.getElementById('copiar');
+    const mensaje = document.getElementById('mensaje');
+    const redondeado = (ctx,x,y,w,h,r) => {
+      ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill();
+    };
+    boton.onclick = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 900; canvas.height = 470;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0e1117'; ctx.fillRect(0,0,900,470);
+      ctx.fillStyle = '#f8fafc'; ctx.font = '700 30px Arial';
+      ctx.fillText('PPTO DE LA JORNADA', 34, 52);
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '600 23px Arial';
+      ctx.fillText(datos.fecha, 34, 88);
+      datos.items.forEach((item, i) => {
+        const col = i % 2, fila = Math.floor(i / 2);
+        const x = 34 + col * 421, y = 118 + fila * 158;
+        ctx.fillStyle = item.fondo; redondeado(ctx,x,y,399,136,17);
+        ctx.fillStyle = item.color; ctx.fillRect(x,y+132,399,4);
+        ctx.fillStyle = '#f8fafc'; ctx.font = '700 21px Arial';
+        ctx.fillText(item.titulo, x+22, y+43);
+        ctx.fillStyle = item.color; ctx.font = '800 32px Arial';
+        ctx.fillText(item.valor, x+22, y+94);
+      });
+      try {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        mensaje.textContent = 'Imagen copiada';
+        boton.textContent = '✓ PPTO copiado';
+      } catch (error) {
+        mensaje.textContent = 'El navegador bloqueó la copia';
+      }
+    };
+    </script>
+    """
+    components.html(plantilla.replace("__DATOS__", datos), height=58)
 
 @st.cache_data
 def load_data(file_path: str, mtime: float):
@@ -53,7 +111,10 @@ with colB:
 st.markdown("📆 **Selecciona una fecha:**")
 fecha=st.date_input("",format="DD/MM/YYYY",label_visibility="collapsed")
 dia_semana=dias_es.get(fecha.strftime('%A'),fecha.strftime('%A')); dia=fecha.day; mes=meses_es.get(fecha.month,str(fecha.month)); anio=fecha.year
-st.markdown(f'<div class="date-title">📅 {dia_semana} {dia:02d} de {mes} de {anio}</div>',unsafe_allow_html=True)
+fecha_texto = f"{dia_semana} {dia:02d} de {mes} de {anio}"
+col_fecha, col_copiar = st.columns([2.5, 1])
+with col_fecha:
+    st.markdown(f'<div class="date-title">📅 {fecha_texto}</div>', unsafe_allow_html=True)
 
 try:
     if not os.path.exists(FILE_PATH): raise FileNotFoundError
@@ -62,6 +123,8 @@ try:
         if len(df_filtrado)>1: st.warning(f"⚠️ Hay {len(df_filtrado)} filas para esta fecha. Se mostrará la primera.")
         fila=df_filtrado.iloc[0]
         win_tgm=to_int(fila.get("Win TGM")); coin_in=to_int(fila.get("Coin In")); win_mesas=to_int(fila.get("Win Mesas")); drop_mesas=to_int(fila.get("Drop Mesas"))
+        with col_copiar:
+            boton_copiar_ppto(fecha_texto, (win_tgm, coin_in, win_mesas, drop_mesas))
         tarjetas_html='<div class="metric-grid">'+tarjeta("🎰","Win TGM",win_tgm,"tgm")+tarjeta("💵","Coin In",coin_in,"coin")+tarjeta("🎲","Win Mesas",win_mesas,"mesas")+tarjeta("🪙","Drop Mesas",drop_mesas,"drop")+'</div>'
         st.markdown(tarjetas_html,unsafe_allow_html=True)
     else: st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
