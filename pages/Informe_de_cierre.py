@@ -250,16 +250,17 @@ with c2:
     cantidad_pagos = p1.number_input("Cantidad", min_value=0, value=0, step=1)
     with p2:
         monto_pagos = campo_monto("Monto total", 0, f"pagos_monto_{fecha}")
-    sobre_millon = p3.number_input("Sobre $1.000.000", min_value=0, value=0, step=1)
+    with p3:
+        sobre_millon = campo_entero("Sobre $1.000.000", 0, f"sobre_millon_{fecha}")
 
-st.subheader("Jackpots TGM")
 jackpots = []
-if st.checkbox("Agregar jackpots (opcional)"):
+if sobre_millon > 0:
+    st.subheader(f"Jackpots TGM ({sobre_millon})")
+    st.caption("Completa un registro por cada premio sobre $1.000.000.")
     maquinas = cargar_maquinas()
     if not maquinas:
         st.warning("No se pudo cargar la base de máquinas.")
-    cantidad_jackpots = st.number_input("Cantidad de jackpots", min_value=1, max_value=10, value=1, step=1)
-    for i in range(cantidad_jackpots):
+    for i in range(sobre_millon):
         st.markdown(f"**Jackpot {i + 1}**")
         j1, j2, j3 = st.columns([1, 1, 1])
         with j1:
