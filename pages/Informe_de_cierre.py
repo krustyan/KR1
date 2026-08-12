@@ -39,7 +39,7 @@ def pesos(valor):
 
 def campo_monto(etiqueta, valor, clave, deshabilitado=False):
     if clave not in st.session_state:
-        st.session_state[clave] = pesos(valor)
+        st.session_state[clave] = pesos(valor) if valor or deshabilitado else ""
 
     def normalizar():
         st.session_state[clave] = pesos(st.session_state[clave])
@@ -49,19 +49,20 @@ def campo_monto(etiqueta, valor, clave, deshabilitado=False):
         key=clave,
         disabled=deshabilitado,
         on_change=normalizar if not deshabilitado else None,
-        help="Escribe el monto completo; al salir del campo se agregarán los puntos de miles.",
+        placeholder="$0",
+        help="Escribe solo los números. Al confirmar o salir del campo aparecerán $ y los puntos de miles.",
     )
     return entero(texto)
 
 
 def campo_entero(etiqueta, valor, clave):
     if clave not in st.session_state:
-        st.session_state[clave] = str(valor)
+        st.session_state[clave] = str(valor) if valor else ""
 
     def normalizar():
         st.session_state[clave] = str(max(0, entero(st.session_state[clave])))
 
-    texto = st.text_input(etiqueta, key=clave, on_change=normalizar)
+    texto = st.text_input(etiqueta, key=clave, on_change=normalizar, placeholder="0")
     return max(0, entero(texto))
 
 
@@ -159,16 +160,20 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             d.rectangle((xs[i], y, xs[i+1], y+31), fill=fondo if i >= 2 else "white", outline=borde)
             d.text((xs[i]+8, y+8), texto, font=f12, fill="#16733b" if i >= 2 and cumplimiento >= 100 else ("#b42318" if i >= 2 else tinta))
         y += 31
-    d.rectangle((margen, y, ancho-margen, y+31), fill="white", outline=borde)
-    resumen = f"PO Jornada: {po:.2f}%  |  Pagos: {cantidad_pagos}  |  Monto: {pesos(monto_pagos)}  |  Sobre $1.000.000: {sobre_millon}"
-    resumen = resumen.replace(".", ",", 1)
-    fuente_resumen = f12
-    tamano_resumen = 15
-    while d.textbbox((0, 0), resumen, font=fuente_resumen)[2] > ancho - (2 * margen) - 20 and tamano_resumen > 12:
-        tamano_resumen -= 1
-        fuente_resumen = fuente(tamano_resumen)
-    d.text((margen+10, y+7), resumen, font=fuente_resumen, fill=tinta)
-    y += 39
+    resumenes = [
+        ("PO JORNADA", f"{po:.2f}%".replace(".", ",")),
+        ("CANTIDAD PREMIOS", str(cantidad_pagos)),
+        ("MONTO TOTAL PREMIOS", pesos(monto_pagos)),
+        ("PREMIOS +$1M", str(sobre_millon)),
+    ]
+    ancho_resumen = (ancho - 2 * margen) // len(resumenes)
+    for i, (etiqueta, valor) in enumerate(resumenes):
+        x1 = margen + i * ancho_resumen
+        x2 = ancho - margen if i == len(resumenes) - 1 else x1 + ancho_resumen
+        d.rectangle((x1, y, x2, y+43), fill="white", outline=borde)
+        d.text((x1+7, y+4), etiqueta, font=fuente(12, True), fill="#526071")
+        d.text((x1+7, y+20), valor, font=fuente(17, True), fill=tinta)
+    y += 51
 
     if jackpots:
         titulo("JACKPOTS TGM")
@@ -245,13 +250,14 @@ po = (1 - (win_tgm_real / coin_in_real)) * 100 if coin_in_real else 0.0
 c1, c2 = st.columns([1, 2])
 c1.metric("PO Jornada", f"{po:.2f}%".replace(".", ","), help="100 × (1 − Win TGM real ÷ Coin In real)")
 with c2:
-    st.markdown("**Pagos totales**")
+    st.markdown("**Premios de la jornada**")
     p1, p2, p3 = st.columns(3)
-    cantidad_pagos = p1.number_input("Cantidad", min_value=0, value=0, step=1)
+    with p1:
+        cantidad_pagos = campo_entero("Cantidad de premios", 0, f"cantidad_premios_{fecha}")
     with p2:
-        monto_pagos = campo_monto("Monto total", 0, f"pagos_monto_{fecha}")
+        monto_pagos = campo_monto("Monto total de premios", 0, f"pagos_monto_{fecha}")
     with p3:
-        sobre_millon = campo_entero("Sobre $1.000.000", 0, f"sobre_millon_{fecha}")
+        sobre_millon = campo_entero("Premios sobre $1M", 0, f"sobre_millon_{fecha}")
 
 jackpots = []
 if sobre_millon > 0:
