@@ -221,7 +221,7 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
 
 st.set_page_config(page_title="Informe de cierre", page_icon="📝", layout="centered")
 st.markdown("<style>.block-container{max-width:850px;padding-top:1rem} div[data-testid='stTextInput'] input{text-align:right;font-variant-numeric:tabular-nums} div[data-testid='stNumberInput'] input{text-align:right}</style>", unsafe_allow_html=True)
-st.page_link("consulta_montos_streamlit.py", label="← Volver a consulta de presupuesto")
+st.page_link("app_pages/consulta_ppto.py", label="← Volver a CONSULTA PPTO")
 st.title("📝 Informe de cierre")
 st.caption("Completa los datos y genera una imagen lista para enviar.")
 
