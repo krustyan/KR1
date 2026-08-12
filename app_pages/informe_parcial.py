@@ -16,8 +16,41 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MONEDA_COMPONENT = st.components.v2.component(
     "campo_moneda_parcial_clp",
     html='''<label class="clp-label"></label><input class="clp-input" inputmode="numeric" autocomplete="off" />''',
-    css='''.clp-label{display:block;color:var(--st-text-color);font-size:.875rem;font-weight:600;margin-bottom:.35rem}.clp-input{width:100%;box-sizing:border-box;min-height:2.5rem;padding:.55rem .75rem;border:1px solid rgba(128,128,128,.35);border-radius:.5rem;background:var(--st-secondary-background-color);color:var(--st-text-color);font:inherit;text-align:right}.clp-input:focus{outline:2px solid var(--st-primary-color);border-color:transparent}''',
-    js='''export default function({parentElement,data,setStateValue}){const label=parentElement.querySelector('.clp-label');const input=parentElement.querySelector('.clp-input');label.textContent=data.label;const format=(raw)=>{const digits=String(raw??'').replace(/\\D/g,'');return digits?'$'+Number(digits).toLocaleString('es-CL'):''};if(document.activeElement!==input&&input.value!==data.value)input.value=data.value??'';input.onfocus=()=>input.select();input.oninput=()=>{input.value=format(input.value);input.setSelectionRange(input.value.length,input.value.length)};const commit=()=>setStateValue('value',input.value);input.onblur=commit;input.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();commit();input.blur()}}}''',
+    css='''
+    :host { display:block; font-family:var(--st-font); }
+    .clp-label { display:block; color:var(--st-text-color); font-size:0.875rem; font-weight:600; margin-bottom:0.35rem; }
+    .clp-input { width:100%; box-sizing:border-box; min-height:2.5rem; padding:0.55rem 0.75rem; border:1px solid rgba(128,128,128,.35); border-radius:0.5rem; background:var(--st-secondary-background-color); color:var(--st-text-color); font:inherit; text-align:right; }
+    .clp-input:focus { outline:2px solid var(--st-primary-color); border-color:transparent; }
+    ''',
+    js='''
+    export default function(component) {
+      const { parentElement, data, setStateValue } = component;
+      const label = parentElement.querySelector('.clp-label');
+      const input = parentElement.querySelector('.clp-input');
+      label.textContent = data.label;
+      const format = (raw) => {
+        const digits = String(raw || '').replace(/[^0-9]/g, '');
+        return digits ? '$' + Number(digits).toLocaleString('es-CL') : '';
+      };
+      if (document.activeElement !== input && input.value !== data.value) {
+        input.value = data.value || '';
+      }
+      input.onfocus = () => input.select();
+      input.oninput = () => {
+        input.value = format(input.value);
+        input.setSelectionRange(input.value.length, input.value.length);
+      };
+      const commit = () => setStateValue('value', input.value);
+      input.onblur = commit;
+      input.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+          input.blur();
+        }
+      };
+    }
+    ''',
 )
 
 
@@ -49,6 +82,16 @@ def campo_monto(etiqueta, clave):
         on_value_change=lambda: None,
     )
     return entero(resultado.value if resultado.value is not None else actual)
+
+
+def campo_entero(etiqueta, clave):
+    if clave not in st.session_state:
+        st.session_state[clave] = ""
+
+    def normalizar():
+        st.session_state[clave] = str(entero(st.session_state[clave]))
+
+    return entero(st.text_input(etiqueta, key=clave, on_change=normalizar, placeholder="0"))
 
 
 @st.cache_data
@@ -134,7 +177,7 @@ with c1:
 with c2:
     coin = campo_monto("Coin In acumulado", f"parcial_coin_{fecha}")
 with c3:
-    ingresos = st.number_input("Ingresos", min_value=0, value=0, step=1)
+    ingresos = campo_entero("Ingresos", f"parcial_ingresos_{fecha}")
 
 avance = win / ppto * 100 if ppto else 0
 estado, _, _ = estado_avance(avance)
