@@ -16,6 +16,41 @@ MAQUINAS_PATH = "data/maquinas.tsv"
 CATEGORIAS = ["Silver", "Gold", "Platinum", "Diamond", "Seven Star"]
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+MONEDA_COMPONENT = st.components.v2.component(
+    "campo_moneda_clp",
+    html='''<label class="clp-label"></label><input class="clp-input" inputmode="numeric" autocomplete="off" />''',
+    css='''
+    :host { display:block; font-family:var(--st-font); }
+    .clp-label { display:block; color:var(--st-text-color); font-size:0.875rem; font-weight:600; margin-bottom:0.35rem; }
+    .clp-input { width:100%; box-sizing:border-box; min-height:2.5rem; padding:0.55rem 0.75rem; border:1px solid rgba(128,128,128,.35); border-radius:0.5rem; background:var(--st-secondary-background-color); color:var(--st-text-color); font:inherit; text-align:right; }
+    .clp-input:focus { outline:2px solid var(--st-primary-color); border-color:transparent; }
+    .clp-input:disabled { opacity:.65; cursor:not-allowed; }
+    ''',
+    js='''
+    export default function({ parentElement, data, setStateValue }) {
+      const label = parentElement.querySelector('.clp-label');
+      const input = parentElement.querySelector('.clp-input');
+      label.textContent = data.label;
+      input.disabled = Boolean(data.disabled);
+      const format = (raw) => {
+        const digits = String(raw ?? '').replace(/\\D/g, '');
+        return digits ? '$' + Number(digits).toLocaleString('es-CL') : '';
+      };
+      if (document.activeElement !== input && input.value !== data.value) input.value = data.value ?? '';
+      input.onfocus = () => { if (!input.disabled) input.select(); };
+      input.oninput = () => {
+        input.value = format(input.value);
+        input.setSelectionRange(input.value.length, input.value.length);
+      };
+      const commit = () => setStateValue('value', input.value);
+      input.onblur = commit;
+      input.onkeydown = (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); commit(); input.blur(); }
+      };
+    }
+    ''',
+)
+
 
 def jornada_actual():
     ahora = datetime.now(ZoneInfo("America/Santiago"))
@@ -38,21 +73,15 @@ def pesos(valor):
 
 
 def campo_monto(etiqueta, valor, clave, deshabilitado=False):
-    if clave not in st.session_state:
-        st.session_state[clave] = pesos(valor) if valor or deshabilitado else ""
-
-    def normalizar():
-        st.session_state[clave] = pesos(st.session_state[clave])
-
-    texto = st.text_input(
-        etiqueta,
+    inicial = pesos(valor) if valor or deshabilitado else ""
+    estado = st.session_state.get(clave, {})
+    actual = estado.get("value", inicial) if isinstance(estado, dict) else inicial
+    resultado = MONEDA_COMPONENT(
+        data={"label": etiqueta, "value": actual, "disabled": deshabilitado},
+        default={"value": actual},
         key=clave,
-        disabled=deshabilitado,
-        on_change=normalizar if not deshabilitado else None,
-        placeholder="$0",
-        help="Escribe solo los números. Al confirmar o salir del campo aparecerán $ y los puntos de miles.",
     )
-    return entero(texto)
+    return entero(resultado.value if resultado.value is not None else actual)
 
 
 def campo_entero(etiqueta, valor, clave):
