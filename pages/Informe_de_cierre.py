@@ -119,10 +119,10 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             areas_sin_novedad.append(area)
         else:
             filas_novedades.append((area, textwrap.wrap(limpio, width=58) or [limpio]))
-    alto = 670 + sum(max(44, 27 * len(lineas) + 16) for _, lineas in filas_novedades) + 66 * len(jackpots)
+    alto = 670 + sum(max(44, 27 * len(lineas) + 16) for _, lineas in filas_novedades) + 46 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
-    f12, f14, f16, f20, f28 = fuente(20), fuente(22), fuente(24, True), fuente(27, True), fuente(48, True)
+    f12, f14, f16, f20, f28 = fuente(22), fuente(24), fuente(26, True), fuente(29, True), fuente(50, True)
     azul, tinta, borde = "#1787a8", "#172033", "#aab4c3"
     y = 20
     d.rounded_rectangle((margen, y, ancho-margen, y+76), 14, fill="#10324b")
@@ -161,13 +161,17 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
     if jackpots:
         titulo("JACKPOTS TGM")
         for monto, maquina, salon, categoria, cliente in jackpots:
-            d.rectangle((margen, y, ancho-margen, y+62), fill="#fff7df", outline=borde)
+            d.rectangle((margen, y, ancho-margen, y+42), fill="#fff7df", outline=borde)
             cliente_txt = cliente.strip() or "Cliente sin identificar"
-            linea_1 = f"{pesos(monto)} | {cliente_txt} | {categoria}"
-            linea_2 = f"Máquina {maquina} | {salon}"
-            d.text((margen+10, y+6), linea_1, font=f16, fill=tinta)
-            d.text((margen+10, y+33), linea_2, font=f12, fill=tinta)
-            y += 62
+            detalle = f"{pesos(monto)} | {cliente_txt} | {categoria} | Máquina {maquina} | {salon}"
+            tamano_detalle = 22
+            fuente_detalle = fuente(tamano_detalle, True)
+            disponible = ancho - (2 * margen) - 20
+            while d.textbbox((0, 0), detalle, font=fuente_detalle)[2] > disponible and tamano_detalle > 17:
+                tamano_detalle -= 1
+                fuente_detalle = fuente(tamano_detalle, True)
+            d.text((margen+10, y+8), detalle, font=fuente_detalle, fill=tinta)
+            y += 42
         y += 8
 
     titulo("NOVEDADES")
