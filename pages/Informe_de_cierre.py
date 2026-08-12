@@ -95,7 +95,12 @@ def cargar_maquinas():
 
 
 def fuente(tamano, negrita=False):
-    nombres = ["DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrita else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+    nombres = [
+        "assets/Ubuntu-B.ttf" if negrita else "assets/Ubuntu-R.ttf",
+        "Ubuntu-B.ttf" if negrita else "Ubuntu-R.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf" if negrita else "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+        "DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf",
+    ]
     for nombre in nombres:
         try:
             return ImageFont.truetype(nombre, tamano)
@@ -114,10 +119,10 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             areas_sin_novedad.append(area)
         else:
             filas_novedades.append((area, textwrap.wrap(limpio, width=58) or [limpio]))
-    alto = 680 + sum(max(48, 28 * len(lineas) + 18) for _, lineas in filas_novedades) + 56 * len(jackpots)
+    alto = 670 + sum(max(44, 27 * len(lineas) + 16) for _, lineas in filas_novedades) + 66 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
-    f12, f14, f16, f20, f28 = fuente(21), fuente(23), fuente(25, True), fuente(28, True), fuente(46, True)
+    f12, f14, f16, f20, f28 = fuente(20), fuente(22), fuente(24, True), fuente(27, True), fuente(48, True)
     azul, tinta, borde = "#1787a8", "#172033", "#aab4c3"
     y = 20
     d.rounded_rectangle((margen, y, ancho-margen, y+76), 14, fill="#10324b")
@@ -155,14 +160,14 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
 
     if jackpots:
         titulo("JACKPOTS TGM")
-        for monto, maquina, salon, banco, categoria, cliente in jackpots:
-            d.rectangle((margen, y, ancho-margen, y+52), fill="#fff7df", outline=borde)
-            detalle = f"{categoria} · Máquina {maquina} · {salon} · {banco}"
-            if cliente.strip():
-                detalle = f"{cliente.strip()} · {detalle}"
-            d.text((margen+10, y+10), pesos(monto), font=f16, fill=tinta)
-            d.text((margen+185, y+11), detalle, font=f12, fill=tinta)
-            y += 52
+        for monto, maquina, salon, categoria, cliente in jackpots:
+            d.rectangle((margen, y, ancho-margen, y+62), fill="#fff7df", outline=borde)
+            cliente_txt = cliente.strip() or "Cliente sin identificar"
+            linea_1 = f"{pesos(monto)} | {cliente_txt} | {categoria}"
+            linea_2 = f"Máquina {maquina} | {salon}"
+            d.text((margen+10, y+6), linea_1, font=f16, fill=tinta)
+            d.text((margen+10, y+33), linea_2, font=f12, fill=tinta)
+            y += 62
         y += 8
 
     titulo("NOVEDADES")
@@ -245,13 +250,12 @@ if st.checkbox("Agregar jackpots (opcional)"):
             monto = campo_monto("Monto", 0, f"jm_{fecha}_{i}")
         maquina = j2.selectbox("Máquina", options=list(maquinas), index=None, placeholder="Escribe o busca…", key=f"maq_{fecha}_{i}")
         categoria = j3.selectbox("Categoría", CATEGORIAS, key=f"cat_{fecha}_{i}")
-        salon, banco = maquinas.get(maquina, ("—", "—"))
-        d1, d2, d3 = st.columns([1, 1, 1])
+        salon, _banco = maquinas.get(maquina, ("—", "—"))
+        d1, d2 = st.columns([1, 2])
         d1.metric("Salón", salon)
-        d2.metric("Banco", banco)
-        cliente = d3.text_input("Cliente (opcional)", key=f"cliente_{fecha}_{i}")
+        cliente = d2.text_input("Cliente (opcional)", key=f"cliente_{fecha}_{i}")
         if maquina:
-            jackpots.append((monto, maquina, salon, banco, categoria, cliente))
+            jackpots.append((monto, maquina, salon, categoria, cliente))
 
 st.subheader("Novedades")
 areas = ["MDJ", "EC / TGM", "TO", "SEGURIDAD", "MANTENCIÓN", "TIC", "BAR / COCINA"]
