@@ -112,19 +112,17 @@ def recortes_ocr(imagen, tipo):
     imagen = ImageOps.exif_transpose(imagen).convert("RGB")
     ancho, alto = imagen.size
     if tipo == "coin":
-        limites = [(0, .22, .68, 1), (0, .52, .68, 1), (0, 0, 1, 1)]
+        limites = [(0, .25, .68, 1), (0, .58, .68, 1)]
     elif tipo == "win":
-        limites = [(.28, .22, .89, 1), (.28, .52, .89, 1), (0, 0, 1, 1)]
+        limites = [(.28, .25, .89, 1), (.28, .58, .89, 1)]
     else:
-        limites = [(.70, .20, 1, 1), (.70, .50, 1, 1), (0, 0, 1, 1)]
+        limites = [(.65, .25, 1, 1), (.65, .52, 1, 1)]
     for x1, y1, x2, y2 in limites:
         recorte = imagen.crop((int(ancho*x1), int(alto*y1), int(ancho*x2), int(alto*y2)))
-        escala = max(3, min(6, 1800 // max(1, recorte.width)))
+        escala = max(2, min(4, 1200 // max(1, recorte.width)))
         recorte = recorte.resize((recorte.width*escala, recorte.height*escala))
         gris = ImageOps.autocontrast(recorte.convert("L"))
-        yield gris
-        yield gris.point(lambda p: 255 if p > 145 else 0)
-        yield gris.point(lambda p: 255 if p > 180 else 0)
+        yield gris.point(lambda p: 255 if p > 165 else 0)
 
 
 def convertir_numero(bruto):
@@ -141,11 +139,10 @@ def convertir_numero(bruto):
 
 def clasificar_captura(archivo):
     imagen = ImageOps.exif_transpose(Image.open(archivo)).convert("RGB")
-    escala = max(1, min(4, 1800 // max(1, imagen.width)))
+    escala = max(1, min(2, 1000 // max(1, imagen.width)))
     imagen = imagen.resize((imagen.width*escala, imagen.height*escala))
     gris = ImageOps.autocontrast(imagen.convert("L"))
-    textos = [pytesseract.image_to_string(gris, config=f"--psm {psm}") for psm in (6, 11)]
-    texto = "\n".join(textos)
+    texto = pytesseract.image_to_string(gris, config="--psm 11", timeout=8)
     normalizado = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
     compacto = re.sub(r"[^a-z0-9]", "", normalizado)
     if "jugado" in compacto or "jvgado" in compacto:
@@ -161,30 +158,30 @@ def extraer_ultimo_numero(archivo, tipo):
     imagen = Image.open(archivo)
     candidatos, textos = [], []
     for preparada in recortes_ocr(imagen, tipo):
-        for psm in (6, 11):
-            datos = pytesseract.image_to_data(
-                preparada,
-                config=f"--psm {psm} -c tessedit_char_whitelist=0123456789$.,-",
-                output_type=pytesseract.Output.DICT,
-            )
-            lineas = {}
-            for i, token in enumerate(datos["text"]):
-                token = token.strip()
-                if not token:
-                    continue
-                clave = (datos["block_num"][i], datos["par_num"][i], datos["line_num"][i])
-                linea = lineas.setdefault(clave, {"tokens": [], "top": datos["top"][i]})
-                linea["tokens"].append(token)
-                linea["top"] = max(linea["top"], datos["top"][i])
-            for linea in lineas.values():
-                texto = "".join(linea["tokens"]).replace("—", "-")
-                textos.append(texto)
-                for bruto in re.findall(r"-?\$?-?\d[\d.,-]*", texto):
-                    bruto = bruto.rstrip(".,-")
-                    digitos = sum(ch.isdigit() for ch in bruto)
-                    if digitos >= (2 if tipo == "ingresos" else 4):
-                        posicion = linea["top"] / max(1, preparada.height)
-                        candidatos.append((bruto, digitos, posicion))
+        datos = pytesseract.image_to_data(
+            preparada,
+            config="--psm 6 -c tessedit_char_whitelist=0123456789$.,-",
+            output_type=pytesseract.Output.DICT,
+            timeout=8,
+        )
+        lineas = {}
+        for i, token in enumerate(datos["text"]):
+            token = token.strip()
+            if not token:
+                continue
+            clave = (datos["block_num"][i], datos["par_num"][i], datos["line_num"][i])
+            linea = lineas.setdefault(clave, {"tokens": [], "top": datos["top"][i]})
+            linea["tokens"].append(token)
+            linea["top"] = max(linea["top"], datos["top"][i])
+        for linea in lineas.values():
+            texto = "".join(linea["tokens"]).replace("—", "-")
+            textos.append(texto)
+            for bruto in re.findall(r"-?\$?-?\d[\d.,-]*", texto):
+                bruto = bruto.rstrip(".,-")
+                digitos = sum(ch.isdigit() for ch in bruto)
+                if digitos >= (2 if tipo == "ingresos" else 4):
+                    posicion = linea["top"] / max(1, preparada.height)
+                    candidatos.append((bruto, digitos, posicion))
     if not candidatos:
         raise ValueError("No se detectó un número")
     if tipo == "ingresos":
@@ -281,16 +278,26 @@ with st.expander("📷 Leer capturas o fotos", expanded=True):
     )
     if st.button("Leer capturas", use_container_width=True):
         detectados, detalles, errores, asignaciones = {}, {}, [], []
-        for archivo in capturas:
-            try:
-                tipo, texto_clasificacion = clasificar_captura(archivo)
-                archivo.seek(0)
-                detectados[tipo], detalles[tipo] = extraer_ultimo_numero(archivo, tipo)
-                detalles[f"clasificación {archivo.name}"] = texto_clasificacion
-                nombre_tipo = {"coin": "Coin In", "win": "Win", "ingresos": "Ingresos"}[tipo]
-                asignaciones.append(f"{archivo.name} → {nombre_tipo}")
-            except Exception as error:
-                errores.append(f"{archivo.name}: {error}")
+        if not capturas:
+            errores.append("Debes seleccionar al menos una imagen")
+        elif len(capturas) > 3:
+            errores.append("Selecciona como máximo tres imágenes")
+        else:
+            progreso = st.progress(0, text="Preparando lectura…")
+            for indice, archivo in enumerate(capturas):
+                progreso.progress(indice / len(capturas), text=f"Leyendo {archivo.name}…")
+                try:
+                    tipo, texto_clasificacion = clasificar_captura(archivo)
+                    archivo.seek(0)
+                    detectados[tipo], detalles[tipo] = extraer_ultimo_numero(archivo, tipo)
+                    detalles[f"clasificación {archivo.name}"] = texto_clasificacion
+                    nombre_tipo = {"coin": "Coin In", "win": "Win", "ingresos": "Ingresos"}[tipo]
+                    asignaciones.append(f"{archivo.name} → {nombre_tipo}")
+                except RuntimeError:
+                    errores.append(f"{archivo.name}: la lectura excedió el tiempo máximo")
+                except Exception as error:
+                    errores.append(f"{archivo.name}: {error}")
+            progreso.progress(1.0, text="Lectura terminada")
         if "coin" in detectados:
             st.session_state[f"parcial_coin_{fecha}"] = {"value": pesos(detectados["coin"])}
         if "win" in detectados:
