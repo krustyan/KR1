@@ -167,6 +167,22 @@ st.markdown("<style>.block-container{max-width:760px;padding-top:1rem}</style>",
 st.title("⏱️ Informe parcial")
 st.caption("Avance acumulado respecto del presupuesto total de la jornada.")
 
+BORRADOR_KEY = "borrador_informe_parcial"
+
+def limpiar_borrador():
+    for clave in list(st.session_state):
+        if clave == BORRADOR_KEY or clave == "parcial_png" or clave.startswith("parcial_"):
+            del st.session_state[clave]
+
+if st.button("Limpiar informe parcial", use_container_width=True):
+    limpiar_borrador()
+    st.rerun()
+
+borrador = st.session_state.get(BORRADOR_KEY, {})
+for clave, valor in borrador.items():
+    if clave not in st.session_state:
+        st.session_state[clave] = valor
+
 fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
 ppto = presupuesto_win(fecha)
 st.metric("PPTO Win TGM del día", pesos(ppto))
@@ -182,6 +198,10 @@ with c3:
 avance = win / ppto * 100 if ppto else 0
 estado, _, _ = estado_avance(avance)
 st.metric("Avance PPTO diario", f"{avance:.1f}%".replace(".", ","), estado)
+
+# Guardado automático para conservar el trabajo al cambiar de página.
+claves_borrador = [clave for clave in st.session_state if clave.startswith("parcial_")]
+st.session_state[BORRADOR_KEY] = {clave: st.session_state[clave] for clave in claves_borrador}
 
 if st.button("Generar informe parcial", type="primary", use_container_width=True):
     st.session_state["parcial_png"] = crear_imagen(fecha, ppto, win, coin, ingresos)
