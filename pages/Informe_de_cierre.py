@@ -18,25 +18,20 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MONEDA_COMPONENT = st.components.v2.component(
     "campo_moneda_clp",
-    html='''<label class="clp-label"></label><div class="clp-row"><input class="clp-input" inputmode="numeric" autocomplete="off" /><button class="clp-signo" type="button" aria-label="Cambiar signo">+/−</button></div>''',
+    html='''<label class="clp-label"></label><input class="clp-input" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" />''',
     css='''
     :host { display:block; font-family:var(--st-font); }
     .clp-label { display:block; color:var(--st-text-color); font-size:0.875rem; font-weight:600; margin-bottom:0.35rem; }
-    .clp-row { display:flex; gap:0.4rem; align-items:stretch; }
-    .clp-input { flex:1; min-width:0; box-sizing:border-box; min-height:2.5rem; padding:0.55rem 0.75rem; border:1px solid rgba(128,128,128,.35); border-radius:0.5rem; background:var(--st-secondary-background-color); color:var(--st-text-color); font:inherit; text-align:right; }
-    .clp-signo { width:3.1rem; min-height:2.5rem; border:1px solid rgba(128,128,128,.35); border-radius:0.5rem; background:var(--st-secondary-background-color); color:var(--st-text-color); font:700 0.9rem var(--st-font); cursor:pointer; touch-action:manipulation; }
-    .clp-signo:active { transform:scale(.97); }
+    .clp-input { width:100%; box-sizing:border-box; min-height:2.5rem; padding:0.55rem 0.75rem; border:1px solid rgba(128,128,128,.35); border-radius:0.5rem; background:var(--st-secondary-background-color); color:var(--st-text-color); font:inherit; text-align:right; }
     .clp-input:focus { outline:2px solid var(--st-primary-color); border-color:transparent; }
-    .clp-input:disabled, .clp-signo:disabled { opacity:.65; cursor:not-allowed; }
+    .clp-input:disabled { opacity:.65; cursor:not-allowed; }
     ''',
     js='''
     export default function({ parentElement, data, setStateValue }) {
       const label = parentElement.querySelector('.clp-label');
       const input = parentElement.querySelector('.clp-input');
-      const signo = parentElement.querySelector('.clp-signo');
       label.textContent = data.label;
       input.disabled = Boolean(data.disabled);
-      signo.disabled = Boolean(data.disabled);
       const format = (raw) => {
         const negative = String(raw ?? '').trim().startsWith('-');
         const digits = String(raw ?? '').replace(/\\D/g, '');
@@ -61,14 +56,6 @@ MONEDA_COMPONENT = st.components.v2.component(
         }
       };
       const commit = () => setStateValue('value', input.value);
-      signo.onclick = () => {
-        if (input.disabled) return;
-        const sinSigno = input.value.replace(/^-/, '');
-        input.value = format(input.value.startsWith('-') ? sinSigno : '-' + sinSigno);
-        commit();
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      };
       input.onblur = commit;
     }
     ''',
