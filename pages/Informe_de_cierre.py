@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import json
 import textwrap
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -287,6 +288,26 @@ st.title("📝 Informe de cierre")
 st.caption("Completa los datos y genera una imagen lista para enviar.")
 
 BORRADOR_KEY = "borrador_informe_cierre"
+BORRADOR_PATH = os.path.join(BASE_DIR, "data", "borrador_informe_cierre.json")
+
+def cargar_borrador_servidor():
+    try:
+        with open(BORRADOR_PATH, "r", encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+            return datos if isinstance(datos, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+def guardar_borrador_servidor(datos):
+    try:
+        os.makedirs(os.path.dirname(BORRADOR_PATH), exist_ok=True)
+        temporal = BORRADOR_PATH + ".tmp"
+        with open(temporal, "w", encoding="utf-8") as archivo:
+            json.dump(datos, archivo, ensure_ascii=False, default=str)
+        os.replace(temporal, BORRADOR_PATH)
+        return True
+    except OSError:
+        return False
 
 def limpiar_borrador():
     prefijos = (
@@ -296,6 +317,11 @@ def limpiar_borrador():
     for clave in list(st.session_state):
         if clave == BORRADOR_KEY or clave == "informe_png" or clave.startswith(prefijos):
             del st.session_state[clave]
+    try:
+        if os.path.exists(BORRADOR_PATH):
+            os.remove(BORRADOR_PATH)
+    except OSError:
+        pass
 
 if st.button("Limpiar informe", use_container_width=True):
     st.session_state["confirmar_limpieza_cierre"] = True
@@ -311,7 +337,8 @@ if st.session_state.get("confirmar_limpieza_cierre"):
         st.session_state["confirmar_limpieza_cierre"] = False
         st.rerun()
 
-borrador = st.session_state.get(BORRADOR_KEY, {})
+borrador = st.session_state.get(BORRADOR_KEY) or cargar_borrador_servidor()
+st.session_state[BORRADOR_KEY] = borrador
 for clave, valor in borrador.items():
     if clave not in st.session_state:
         st.session_state[clave] = valor
@@ -390,8 +417,12 @@ claves_borrador = [
     if clave.startswith(("r_", "jm_", "maq_", "cat_", "cliente_", "cantidad_premios_", "pagos_monto_", "sobre_millon_", "ingreso_total_", "ingreso_cortesias_", "n_"))
 ]
 st.session_state[BORRADOR_KEY] = {clave: st.session_state[clave] for clave in claves_borrador}
+guardado_servidor = guardar_borrador_servidor(st.session_state[BORRADOR_KEY])
 st.session_state["ultimo_guardado_cierre"] = datetime.now(ZoneInfo("America/Santiago")).strftime("%H:%M")
-st.caption(f"✓ Borrador guardado · Último cambio: {st.session_state['ultimo_guardado_cierre']}")
+if guardado_servidor:
+    st.caption(f"✓ Borrador guardado · Último cambio: {st.session_state['ultimo_guardado_cierre']}")
+else:
+    st.warning("El borrador está guardado solo en este dispositivo. No se pudo guardar en el servidor.")
 
 def campo_completado(clave):
     valor = st.session_state.get(clave, "")
