@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MONEDA_COMPONENT = st.components.v2.component(
     "campo_moneda_parcial_clp",
-    html='''<label class="clp-label"></label><input class="clp-input" inputmode="numeric" autocomplete="off" />''',
+    html='''<label class="clp-label"></label><input class="clp-input" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" />''',
     css='''
     :host { display:block; font-family:var(--st-font); }
     .clp-label { display:block; color:var(--st-text-color); font-size:0.875rem; font-weight:600; margin-bottom:0.35rem; }
@@ -28,9 +28,12 @@ MONEDA_COMPONENT = st.components.v2.component(
       const label = parentElement.querySelector('.clp-label');
       const input = parentElement.querySelector('.clp-input');
       label.textContent = data.label;
+      input.inputMode = data.allowNegative ? 'text' : 'numeric';
       const format = (raw) => {
-        const digits = String(raw || '').replace(/[^0-9]/g, '');
-        return digits ? '$' + Number(digits).toLocaleString('es-CL') : '';
+        const negative = data.allowNegative && String(raw ?? '').trim().startsWith('-');
+        const digits = String(raw ?? '').replace(/\\D/g, '');
+        if (!digits) return negative ? '-' : '';
+        return (negative ? '-$' : '$') + Number(digits).toLocaleString('es-CL');
       };
       if (document.activeElement !== input && input.value !== data.value) {
         input.value = data.value || '';
@@ -43,7 +46,11 @@ MONEDA_COMPONENT = st.components.v2.component(
       const commit = () => setStateValue('value', input.value);
       input.onblur = commit;
       input.onkeydown = (event) => {
-        if (event.key === 'Enter') {
+        if (data.allowNegative && event.key === '-' && !input.value.startsWith('-')) {
+          event.preventDefault();
+          input.value = input.value ? '-' + input.value.replace('-', '') : '-';
+          input.setSelectionRange(input.value.length, input.value.length);
+        } else if (event.key === 'Enter') {
           event.preventDefault();
           commit();
           input.blur();
@@ -61,22 +68,26 @@ def jornada_actual():
 
 def entero(valor):
     if isinstance(valor, str):
-        return int("".join(c for c in valor if c.isdigit()) or 0)
+        negativo = valor.strip().startswith("-")
+        digitos = "".join(c for c in valor if c.isdigit())
+        return (-1 if negativo else 1) * int(digitos or 0)
     try:
-        return int(valor)
+        return int(float(valor))
     except (TypeError, ValueError):
         return 0
 
 
 def pesos(valor):
-    return f"${entero(valor):,}".replace(",", ".")
+    numero = entero(valor)
+    signo = "-" if numero < 0 else ""
+    return f"{signo}${abs(numero):,}".replace(",", ".")
 
 
-def campo_monto(etiqueta, clave):
+def campo_monto(etiqueta, clave, permitir_negativo=False):
     estado = st.session_state.get(clave, {})
     actual = estado.get("value", "") if isinstance(estado, dict) else ""
     resultado = MONEDA_COMPONENT(
-        data={"label": etiqueta, "value": actual},
+        data={"label": etiqueta, "value": actual, "allowNegative": permitir_negativo},
         default={"value": actual},
         key=clave,
         on_value_change=lambda: None,
@@ -207,7 +218,7 @@ st.metric("PPTO Win TGM del día", pesos(ppto))
 
 c1, c2, c3 = st.columns([1, 1, .7])
 with c1:
-    win = campo_monto("Win acumulado", f"parcial_win_{fecha}")
+    win = campo_monto("Win acumulado", f"parcial_win_{fecha}", permitir_negativo=True)
 with c2:
     coin = campo_monto("Coin In acumulado", f"parcial_coin_{fecha}")
 with c3:
