@@ -6,6 +6,8 @@ import textwrap
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from metas_flujo import meta_flujo
+
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -164,7 +166,8 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
             areas_sin_novedad.append(area)
         else:
             filas_novedades.append((area, textwrap.wrap(limpio, width=58) or [limpio]))
-    alto = 520 + sum(max(32, 18 * len(lineas) + 12) for _, lineas in filas_novedades) + 34 * len(jackpots)
+    meta = meta_flujo(fecha)
+    alto = (580 if meta is not None else 520) + sum(max(32, 18 * len(lineas) + 12) for _, lineas in filas_novedades) + 34 * len(jackpots)
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
     f12, f14, f16, f20, f28 = fuente(15), fuente(17), fuente(19, True), fuente(22, True), fuente(36, True)
@@ -262,6 +265,15 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
         d.text((x1+10, y+5), etiqueta, font=f12, fill="#526071")
         d.text((x1+10, y+19), str(valor), font=f16, fill=tinta)
     y += 50
+    if meta is not None:
+        cumplimiento = ingresos[0] / meta * 100
+        fondo = "#dff4e5" if cumplimiento >= 100 else "#ffe0e0"
+        color = "#16733b" if cumplimiento >= 100 else "#b42318"
+        d.rectangle((margen, y, ancho-margen, y+40), fill=fondo, outline=borde)
+        d.text((margen+10, y+11), f"Meta diaria: {meta} personas", font=f16, fill=tinta)
+        texto = f"Cumplimiento ingresos: {cumplimiento:.1f}%".replace(".", ",")
+        d.text((455, y+11), texto, font=f16, fill=color)
+        y += 50
     salida = io.BytesIO()
     img.crop((0, 0, ancho, min(alto, y))).save(salida, format="PNG", optimize=True)
     return salida.getvalue()
@@ -410,6 +422,18 @@ with c2:
     cortesias = campo_entero("Cortesías", 0, f"ingreso_cortesias_{fecha}")
 venta = max(0, total - cortesias)
 c3.metric("Venta", venta, help="Se calcula automáticamente: Total − Cortesías")
+
+meta = meta_flujo(fecha)
+if meta is not None:
+    c_meta, c_cumplimiento = st.columns(2)
+    c_meta.metric("Meta diaria de flujo", f"{meta} personas")
+    c_cumplimiento.metric(
+        "Cumplimiento de ingresos totales del día",
+        f"{total / meta * 100:.1f}%".replace(".", ","),
+        help="Ingresos totales (incluidas cortesías) ÷ meta diaria × 100",
+    )
+else:
+    st.caption("Sin meta de flujo definida para esta jornada.")
 
 # Guardado automático para conservar el trabajo al cambiar de página.
 claves_borrador = [
