@@ -68,8 +68,9 @@ def boton_copiar_ppto(fecha_texto, valores, meta=None):
       datos.items.forEach((item, i) => {
         const col = i % 2, fila = Math.floor(i / 2);
         const x = 34 + col * 421, y = 118 + fila * 158;
-        ctx.fillStyle = item.fondo; redondeado(ctx,x,y,399,136,17);
-        ctx.fillStyle = item.color; ctx.fillRect(x,y+132,399,4);
+        const w = i === 4 ? 820 : 399;
+        ctx.fillStyle = item.fondo; redondeado(ctx,x,y,w,136,17);
+        ctx.fillStyle = item.color; ctx.fillRect(x,y+132,w,4);
         ctx.font = '30px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
         ctx.fillText(item.icono, x+22, y+42);
         ctx.fillStyle = '#f8fafc'; ctx.font = '700 21px Arial,sans-serif';
