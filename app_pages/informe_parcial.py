@@ -174,8 +174,8 @@ def crear_imagen(fecha, ppto, win, coin, ingresos):
     if meta is not None:
         porcentaje = ingresos / meta * 100
         d.rounded_rectangle((margen, 330, ancho-margen, 406), 9, fill="white", outline="#bcc7d3")
-        d.text((margen+14, 339), "FLUJO DE INGRESO AL CASINO", font=f14, fill="#526071")
-        texto = f"Meta: {meta} personas | Avance: {porcentaje:.1f}%".replace(".", ",")
+        d.text((margen+14, 339), "INGRESOS BOLETERÍA", font=f14, fill="#526071")
+        texto = f"Meta: {meta} personas | Cumplimiento: {porcentaje:.1f}%".replace(".", ",")
         d.text((margen+14, 367), texto, font=f18, fill="#172033")
     salida = io.BytesIO()
     img.save(salida, "PNG", optimize=True)
@@ -241,7 +241,7 @@ estado, _, _ = estado_avance(avance)
 st.metric("Avance PPTO diario", f"{avance:.1f}%".replace(".", ","), estado)
 
 if meta is not None:
-    st.metric("Avance meta de flujo", f"{ingresos / meta * 100:.1f}%".replace(".", ","))
+    st.metric("Cumplimiento de ingresos del día (%)", f"{ingresos / meta * 100:.1f}%".replace(".", ","))
 
 # Guardado automático para conservar el trabajo al cambiar de página.
 claves_borrador = [clave for clave in st.session_state if clave.startswith("parcial_")]
