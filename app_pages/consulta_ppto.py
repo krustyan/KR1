@@ -1,3 +1,5 @@
+from metas_flujo import meta_flujo
+
 import streamlit as st
 import pandas as pd
 import os
@@ -26,7 +28,7 @@ def tarjeta(icono, titulo, monto, clase):
     return f'<div class="metric-card {clase}"><div class="metric-icon">{icono}</div><div class="metric-title">{titulo}</div><div class="metric-value">{formatear_monto(monto)}</div></div>'
 
 
-def boton_copiar_ppto(fecha_texto, valores):
+def boton_copiar_ppto(fecha_texto, valores, meta=None):
     datos = json.dumps(
         {
             "fecha": fecha_texto,
@@ -39,6 +41,10 @@ def boton_copiar_ppto(fecha_texto, valores):
         },
         ensure_ascii=False,
     )
+    if meta is not None:
+        contenido = json.loads(datos)
+        contenido["items"].append({"icono": "👥", "titulo": "Meta ingresos casino", "valor": f"{meta} personas", "color": "#5eead4", "fondo": "#12332e"})
+        datos = json.dumps(contenido, ensure_ascii=False)
     plantilla = """
     <button id="copiar" style="width:100%;height:38px;border:0;border-radius:9px;background:#1787a8;color:white;font:600 14px sans-serif;cursor:pointer">📋 Copiar PPTO</button>
     <div id="mensaje" style="font:12px sans-serif;color:#94a3b8;margin-top:3px;text-align:center"></div>
@@ -51,10 +57,10 @@ def boton_copiar_ppto(fecha_texto, valores):
     };
     boton.onclick = async () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 1800; canvas.height = 940;
+      canvas.width = 1800; canvas.height = datos.items.length > 4 ? 1260 : 940;
       const ctx = canvas.getContext('2d');
       ctx.scale(2, 2);
-      ctx.fillStyle = '#0e1117'; ctx.fillRect(0,0,900,470);
+      ctx.fillStyle = '#0e1117'; ctx.fillRect(0,0,900,canvas.height / 2);
       ctx.fillStyle = '#f8fafc'; ctx.font = '700 30px Arial';
       ctx.fillText('PPTO DE LA JORNADA', 34, 52);
       ctx.fillStyle = '#cbd5e1'; ctx.font = '600 23px Arial';
@@ -114,6 +120,7 @@ with colB:
 st.markdown("📆 **Selecciona una fecha:**")
 fecha=st.date_input("",format="DD/MM/YYYY",label_visibility="collapsed")
 dia_semana=dias_es.get(fecha.strftime('%A'),fecha.strftime('%A')); dia=fecha.day; mes=meses_es.get(fecha.month,str(fecha.month)); anio=fecha.year
+meta = meta_flujo(fecha)
 fecha_texto = f"{dia_semana} {dia:02d} de {mes} de {anio}"
 col_fecha, col_copiar = st.columns([2.5, 1])
 with col_fecha:
@@ -127,9 +134,15 @@ try:
         fila=df_filtrado.iloc[0]
         win_tgm=to_int(fila.get("Win TGM")); coin_in=to_int(fila.get("Coin In")); win_mesas=to_int(fila.get("Win Mesas")); drop_mesas=to_int(fila.get("Drop Mesas"))
         with col_copiar:
-            boton_copiar_ppto(fecha_texto, (win_tgm, coin_in, win_mesas, drop_mesas))
+            boton_copiar_ppto(fecha_texto, (win_tgm, coin_in, win_mesas, drop_mesas), meta)
         tarjetas_html='<div class="metric-grid">'+tarjeta("🎰","Win TGM",win_tgm,"tgm")+tarjeta("💵","Coin In",coin_in,"coin")+tarjeta("🎲","Win Mesas",win_mesas,"mesas")+tarjeta("🪙","Drop Mesas",drop_mesas,"drop")+'</div>'
         st.markdown(tarjetas_html,unsafe_allow_html=True)
     else: st.warning("⚠️ No se encontraron datos para la fecha seleccionada.")
 except FileNotFoundError: st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se encontró.")
 except Exception as e: st.error(f"❌ Error: {e}")
+
+if meta is not None:
+    st.metric("👥 Meta de ingresos al casino", f"{meta} personas")
+    st.caption("Meta diaria de flujo · HalloWIN · Octubre 2026")
+else:
+    st.caption("Sin meta de flujo definida para esta fecha.")

@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from metas_flujo import meta_flujo
+
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -140,7 +142,8 @@ def estado_avance(avance):
 def crear_imagen(fecha, ppto, win, coin, ingresos):
     avance = win / ppto * 100 if ppto else 0
     estado, color, fondo = estado_avance(avance)
-    ancho, alto, margen = 900, 360, 26
+    meta = meta_flujo(fecha)
+    ancho, alto, margen = 900, (430 if meta is not None else 360), 26
     img = Image.new("RGB", (ancho, alto), "#f7f9fc")
     d = ImageDraw.Draw(img)
     f14, f18, f24, f34 = fuente(18), fuente(22, True), fuente(28, True), fuente(38, True)
@@ -168,6 +171,12 @@ def crear_imagen(fecha, ppto, win, coin, ingresos):
         d.rounded_rectangle((x1, y1, x2-8, y1+70), 9, fill="white", outline="#bcc7d3")
         d.text((x1+14, y1+9), etiqueta, font=f14, fill="#526071")
         d.text((x1+14, y1+32), valor, font=f18, fill="#172033")
+    if meta is not None:
+        porcentaje = ingresos / meta * 100
+        d.rounded_rectangle((margen, 330, ancho-margen, 406), 9, fill="white", outline="#bcc7d3")
+        d.text((margen+14, 339), "FLUJO DE INGRESO AL CASINO", font=f14, fill="#526071")
+        texto = f"Meta: {meta} personas | Avance: {porcentaje:.1f}%".replace(".", ",")
+        d.text((margen+14, 367), texto, font=f18, fill="#172033")
     salida = io.BytesIO()
     img.save(salida, "PNG", optimize=True)
     return salida.getvalue()
@@ -214,7 +223,10 @@ for clave, valor in borrador.items():
 
 fecha = st.date_input("Fecha de jornada", value=jornada_actual(), format="DD/MM/YYYY")
 ppto = presupuesto_win(fecha)
-st.metric("PPTO Win TGM del día", pesos(ppto))
+meta = meta_flujo(fecha)
+c_win, c_flujo = st.columns(2)
+c_win.metric("PPTO Win TGM del día", pesos(ppto))
+c_flujo.metric("Meta de ingresos al casino", f"{meta} personas" if meta is not None else "Sin meta definida")
 
 c1, c2, c3 = st.columns([1, 1, .7])
 with c1:
@@ -227,6 +239,9 @@ with c3:
 avance = win / ppto * 100 if ppto else 0
 estado, _, _ = estado_avance(avance)
 st.metric("Avance PPTO diario", f"{avance:.1f}%".replace(".", ","), estado)
+
+if meta is not None:
+    st.metric("Avance meta de flujo", f"{ingresos / meta * 100:.1f}%".replace(".", ","))
 
 # Guardado automático para conservar el trabajo al cambiar de página.
 claves_borrador = [clave for clave in st.session_state if clave.startswith("parcial_")]
