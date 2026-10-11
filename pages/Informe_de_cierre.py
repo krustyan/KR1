@@ -270,7 +270,7 @@ def crear_imagen(fecha, resultados, po, cantidad_pagos, monto_pagos, sobre_millo
         fondo = "#dff4e5" if cumplimiento >= 100 else "#ffe0e0"
         color = "#16733b" if cumplimiento >= 100 else "#b42318"
         d.rectangle((margen, y, ancho-margen, y+40), fill=fondo, outline=borde)
-        d.text((margen+10, y+11), f"Meta diaria: {meta} personas", font=f16, fill=tinta)
+        d.text((margen+10, y+11), f"Meta diaria: {meta} ingresos", font=f16, fill=tinta)
         texto = f"Cumplimiento ingresos: {cumplimiento:.1f}%".replace(".", ",")
         d.text((455, y+11), texto, font=f16, fill=color)
         y += 50
@@ -426,7 +426,7 @@ c3.metric("Venta", venta, help="Se calcula automáticamente: Total − Cortesía
 meta = meta_flujo(fecha)
 if meta is not None:
     c_meta, c_cumplimiento = st.columns(2)
-    c_meta.metric("Meta diaria de flujo", f"{meta} personas")
+    c_meta.metric("Meta diaria de flujo", f"{meta} ingresos")
     c_cumplimiento.metric(
         "Cumplimiento de ingresos totales del día",
         f"{total / meta * 100:.1f}%".replace(".", ","),
