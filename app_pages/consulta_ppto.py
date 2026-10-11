@@ -43,7 +43,7 @@ def boton_copiar_ppto(fecha_texto, valores, meta=None):
     )
     if meta is not None:
         contenido = json.loads(datos)
-        contenido["items"].append({"icono": "👥", "titulo": "Ingresos boletería", "valor": f"{meta} personas", "color": "#5eead4", "fondo": "#12332e"})
+        contenido["items"].append({"icono": "👥", "titulo": "Ingresos boletería", "valor": f"{meta} ingresos", "color": "#5eead4", "fondo": "#12332e"})
         datos = json.dumps(contenido, ensure_ascii=False)
     plantilla = """
     <button id="copiar" style="width:100%;height:38px;border:0;border-radius:9px;background:#1787a8;color:white;font:600 14px sans-serif;cursor:pointer">📋 Copiar PPTO</button>
@@ -143,7 +143,7 @@ except FileNotFoundError: st.error("❌ El archivo 'CIERRE_PPTO_2025.xlsx' no se
 except Exception as e: st.error(f"❌ Error: {e}")
 
 if meta is not None:
-    st.markdown(f'<div class="metric-grid"><div class="metric-card flujo"><div class="metric-icon">👥</div><div class="metric-title">Ingresos boletería</div><div class="metric-value">{meta} personas</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-grid"><div class="metric-card flujo"><div class="metric-icon">👥</div><div class="metric-title">Ingresos boletería</div><div class="metric-value">{meta} ingresos</div></div></div>', unsafe_allow_html=True)
     st.caption("Meta diaria de flujo")
 else:
     st.caption("Sin meta de flujo definida para esta fecha.")
