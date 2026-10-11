@@ -175,7 +175,7 @@ def crear_imagen(fecha, ppto, win, coin, ingresos):
         porcentaje = ingresos / meta * 100
         d.rounded_rectangle((margen, 330, ancho-margen, 406), 9, fill="white", outline="#bcc7d3")
         d.text((margen+14, 339), "INGRESOS BOLETERÍA", font=f14, fill="#526071")
-        texto = f"Meta: {meta} personas | Cumplimiento: {porcentaje:.1f}%".replace(".", ",")
+        texto = f"Meta: {meta} ingresos | Cumplimiento: {porcentaje:.1f}%".replace(".", ",")
         d.text((margen+14, 367), texto, font=f18, fill="#172033")
     salida = io.BytesIO()
     img.save(salida, "PNG", optimize=True)
@@ -226,7 +226,7 @@ ppto = presupuesto_win(fecha)
 meta = meta_flujo(fecha)
 c_win, c_flujo = st.columns(2)
 c_win.metric("PPTO Win TGM del día", pesos(ppto))
-c_flujo.metric("Meta de ingresos al casino", f"{meta} personas" if meta is not None else "Sin meta definida")
+c_flujo.metric("Meta de ingresos al casino", f"{meta} ingresos" if meta is not None else "Sin meta definida")
 
 c1, c2, c3 = st.columns([1, 1, .7])
 with c1:
